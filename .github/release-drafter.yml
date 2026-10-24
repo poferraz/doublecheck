@@ -1,0 +1,38 @@
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+categories:
+  - title: '🚀 Features & Enhancements'
+    labels:
+      - 'feature'
+      - 'enhancement'
+  - title: '🛡️ Security & Hardening'
+    labels:
+      - 'security'
+      - 'hardening'
+  - title: '🐛 Bug Fixes'
+    labels:
+      - 'bug'
+      - 'fix'
+  - title: '📖 Documentation & Community'
+    labels:
+      - 'documentation'
+      - 'docs'
+change-template: '- $TITLE (#$NUMBER) by @$AUTHOR'
+version-resolver:
+  major:
+    labels:
+      - 'major'
+  minor:
+    labels:
+      - 'minor'
+  patch:
+    labels:
+      - 'patch'
+  default: patch
+template: |
+  ## What's Changed
+
+  $CHANGES
+
+  ---
+  **Full Changelog**: https://github.com/poferraz/doublecheck/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
