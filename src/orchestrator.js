@@ -11,8 +11,13 @@ export async function defaultAlibabaRunner(targetPath, options = {}) {
   const modelArg = options.model ? `--model ${options.model}` : '';
   const concurrencyArg = options.concurrency ? `--concurrency ${options.concurrency}` : '--concurrency 4';
 
+  const resolved = path.resolve(targetPath || '.');
+  const isDirectory = fs.existsSync(resolved) && fs.statSync(resolved).isDirectory();
+  const repoArg = isDirectory ? `--repo "${resolved}"` : '';
+  const pathArg = !isDirectory ? `--path "${resolved}"` : '';
+
   try {
-    const cmd = `ocr scan --path "${targetPath}" --format json -o "${outputFile}" --no-plan ${concurrencyArg} ${modelArg}`;
+    const cmd = `ocr scan ${repoArg} ${pathArg} --format json -o "${outputFile}" --no-plan ${concurrencyArg} ${modelArg}`.replace(/\s+/g, ' ').trim();
     execSync(cmd, { stdio: 'pipe', encoding: 'utf8', timeout: options.timeout || 300000 });
 
     if (fs.existsSync(outputFile)) {
