@@ -1,4 +1,7 @@
-# `doublecheck` 🔍⚖️
+<p align="center">
+# `doublecheck`
+</p>
+
 
 <p align="center">
   <strong>Multi-Perspective Code Security & Architecture Review for Humans and AI Agents.</strong><br>
