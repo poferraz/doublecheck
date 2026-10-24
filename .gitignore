@@ -6,3 +6,8 @@ coverage/
 .env
 .env.*
 !.env.example
+doublecheck-report.md
+doublecheck-report.json
+audit.json
+*.tgz
+.superpowers/

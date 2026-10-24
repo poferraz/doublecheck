@@ -160,11 +160,80 @@ Feedback, PRs, and benchmark reports on different Ollama models are welcome!
 
 ---
 
-## 4. Key Launch Tags & Mentions
+## 4. Product Hunt Launch
+
+### Tagline
+```
+Autonomous Multi-Perspective Code Security for Humans & AI Agents
+```
+
+### Short Description (60 chars)
+```
+Cloudflare Adversary + Alibaba Architect code review on Ollama
+```
+
+### Maker First Comment
+```markdown
+Hey Product Hunt! 👋
+
+I built **doublecheck** because single-lens code reviews always leave blind spots:
+• Linters flag syntax nits but miss multi-step SSRF and prompt injection.
+• AI security models spot attack paths but hallucinate line numbers or produce high false-positive noise.
+
+The breakthrough: **Cross-Audit Convergence**.
+`doublecheck` synthesizes two world-class methodologies:
+1. **The Attacker (Cloudflare Security Audit)**: Exploit chains, AI prompt injection, DOM XSS, crypto tampering.
+2. **The Architect (Alibaba Open Code Review)**: AST invariants, null safety, async leaks, type coercion traps.
+
+When both independent lenses flag the exact same line, confidence hits 100% (Priority 0 Blocker).
+
+🛡️ **100% Free & Local:** Runs on consumer hardware via local Ollama (`deepseek-v4.1-flash`, `qwen2.5-coder`, or `mistral`). Zero API keys required. No code leaves your workstation.
+🚀 **Claude Code & PR Ready:** Generates `.github/REVIEW.md` (`npx @poferraz/doublecheck --init-review`) to seamlessly bridge into Anthropic's Claude Code Review for continuous PR checks.
+
+Try it on your repo right now:
+`npx @poferraz/doublecheck .`
+
+Looking forward to your feedback and feature requests!
+```
+
+---
+
+## 5. LinkedIn Post
+
+```text
+The most dangerous software vulnerabilities aren't syntax errors—they are architectural contradictions.
+
+A static linter will happily pass an unrestricted forward proxy if the indentation is correct.
+A penetration scanner will flag potential SSRF but won't check if your Promise handles rejection.
+
+Today, I'm open-sourcing doublecheck 🔍⚖️
+
+An autonomous, multi-perspective code audit protocol that unifies two world-class standards:
+⚔️ The Attacker Lens (Cloudflare Security Audit): Threat modeling, prompt injection, DOM XSS, SSRF.
+🏛️ The Architect Lens (Alibaba Open Code Review): AST invariants, null dereferences, state race conditions.
+
+💡 The Core Theorem:
+When two orthogonal AI lenses independently flag the exact same line of code, false positive rates drop to near zero. doublecheck automatically promotes these to "Converged High-Confidence Defects (P0)".
+
+Key highlights:
+• 100% Local Inference: Powered entirely by Ollama (tested with DeepSeek V4 and Qwen 2.5 Coder). Zero code tokens sent to the cloud. Zero cost ($0.00).
+• Defense-in-Depth: Features instant configuration for Anthropic's Claude Code Review via `npx @poferraz/doublecheck --init-review`.
+• Universal Agent Skill: Seamlessly drops into Claude Code, Cursor, Windsurf, or Google Antigravity.
+
+Check out the repository on GitHub:
+👉 https://github.com/poferraz/doublecheck
+
+#CyberSecurity #AppSec #LocalLLM #DevSecOps #OpenSource #AI #SoftwareEngineering
+```
+
+---
+
+## 6. Key Launch Tags & Mentions
 
 - **Hashtags:** `#LocalLLM` `#CyberSecurity` `#AppSec` `#OpenSource` `#Ollama` `#DevSecOps` `#AI`
 - **Recommended Accounts to Tag / Mention:**
   - `@ollama`
   - `@CloudflareDev`
   - `@Alibaba_Cloud`
+  - `@AnthropicAI`
   - `@deepseek_ai`

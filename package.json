@@ -24,6 +24,9 @@
   "keywords": [
     "security-audit",
     "code-review",
+    "claude-code",
+    "claude-code-review",
+    "defense-in-depth",
     "agent-skill",
     "ollama",
     "cloudflare",

@@ -10,8 +10,33 @@
   <a href="https://ollama.com"><img src="https://img.shields.io/badge/Inference-100%25%20Local%20Ollama-blue?style=flat-square" alt="Ollama"></a>
   <a href="https://github.com/cloudflare/security-audit-skill"><img src="https://img.shields.io/badge/Adversary-Cloudflare%20Audit-orange?style=flat-square" alt="Cloudflare Security Audit"></a>
   <a href="https://github.com/alibaba/open-code-review"><img src="https://img.shields.io/badge/Architect-Alibaba%20OCR-red?style=flat-square" alt="Alibaba OCR"></a>
+  <a href="https://code.claude.com/docs/en/code-review"><img src="https://img.shields.io/badge/PR%20Review-Claude%20Code%20Ready-purple?style=flat-square" alt="Claude Code Review"></a>
+  <a href="https://agentskills.io"><img src="https://img.shields.io/badge/Skill-Agent%20Skills%20Standard-blueviolet?style=flat-square" alt="Agent Skills"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square" alt="License"></a>
 </p>
+
+```text
+$ npx @poferraz/doublecheck .
+
+[doublecheck] Running pre-flight environment checks...
+✔ Local Ollama connected at http://localhost:11434 (deepseek-v4.1-flash)
+✔ Alibaba Open Code Review (ocr) engine active
+
+[doublecheck] Starting Dual-Perspective Audit on ./src...
+  1. Lens 1: The Adversary (Cloudflare Security Audit Standard)
+  2. Lens 2: The Principal Architect (Alibaba Open Code Review)
+
+⚖️  CROSS-AUDIT CONVERGENCE DETECTED:
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 🚨 PRIORITY 0 IMMEDIATE BLOCKER: api/ai-proxy.js:29                          │
+│ • Cloudflare Adversary: CRITICAL — Unrestricted serverless forward proxy     │
+│                         to cloud metadata (169.254.169.254).                 │
+│ • Alibaba Architect:    CRITICAL — Wildcard CORS credential relay on fetch() │
+│ ↳ CONVERGENCE CONFIDENCE: 100% (Both independent lenses flagged same line)   │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+✔ Audit Complete: 1 Converged P0 Defect | Reports: doublecheck-report.md
+```
 
 ---
 
