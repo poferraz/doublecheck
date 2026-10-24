@@ -119,7 +119,7 @@ During validation across production repositories, `doublecheck` proved its conve
 
 ## 🛠️ Requirements & Model Policy
 
-- **Node.js:** `>= 18.0.0`
+- **Node.js:** `>= 20.0.0` (Active LTS)
 - **Inference:** Local [Ollama](https://ollama.com) (Recommended: `deepseek-v4.1-flash`, `qwen2.5-coder:14b`, or `mistral-large`).
 - **Cost:** **$0.00** — zero mandatory external subscriptions, zero proprietary API tokens, zero data sent over the wire.
 

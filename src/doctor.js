@@ -43,8 +43,8 @@ export async function checkEnvironment(options = {}) {
 
   // 1. Verify Node.js version
   const majorVersion = parseInt(process.versions.node.split('.')[0], 10);
-  if (majorVersion < 18) {
-    errors.push(`Node.js version 18+ required (detected v${process.versions.node}).`);
+  if (majorVersion < 20) {
+    errors.push(`Node.js version 20+ required (detected v${process.versions.node}).`);
   }
 
   // 2. Check local Ollama readiness

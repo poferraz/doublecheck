@@ -39,7 +39,7 @@
   },
   "homepage": "https://github.com/poferraz/doublecheck#readme",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "devDependencies": {
     "vitest": "^5.0.5"
