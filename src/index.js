@@ -12,5 +12,6 @@ export {
 export {
   parseCliArgs,
   runCli,
-  printHelp
+  printHelp,
+  generateDefaultReviewMd
 } from './cli.js';

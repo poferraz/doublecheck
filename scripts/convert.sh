@@ -21,6 +21,7 @@ Supported platforms:
   antigravity  — Google Antigravity (~/.gemini/antigravity/skills/ format)
   windsurf     — Windsurf (.windsurfrules format)
   codex        — OpenAI Codex (AGENTS.md format)
+  review-md    — Claude Code Review (.github/REVIEW.md format)
   all          — Build distribution packages for all platforms
 
 Output is written to dist/platforms/<platform>/
@@ -102,18 +103,76 @@ convert_codex() {
     echo "Output: $out/AGENTS.md"
 }
 
+convert_review_md() {
+    local out="$OUTPUT_DIR/review-md"
+    mkdir -p "$out"
+    echo "Converting for Claude Code Review (REVIEW.md)..."
+    cat <<'REVIEW_EOF' > "$out/REVIEW.md"
+# Code Review Guidelines
+
+This document configures automated code review behaviors for Claude Code Review on pull requests, enforcing the `doublecheck` multi-perspective review standard.
+
+---
+
+## Focus Areas
+
+1. **The Adversary Lens (Cloudflare Security Audit Standard):**
+   - AI & LLM Security: Detect prompt injection sinks, unvalidated tool parameter execution, homoglyph normalization bypasses.
+   - Client-Side Security: Unescaped `innerHTML`/`outerHTML`, DOM XSS sinks, sensitive token exposure in `document.cookie` or `localStorage`.
+   - Cloud & Deployment: Server-side request forgery (SSRF), unauthenticated proxies, wildcard CORS headers on credentialed endpoints.
+   - Cryptographic Integrity: Truncated digest hashes, nonces without domain separation, secrets in version control.
+
+2. **The Architect Lens (Alibaba Open Code Review Standard):**
+   - AST Correctness: Null dereferences, missing optional chaining on dynamic payloads, incomplete object spread defaults.
+   - Async & Concurrency: Unhandled promise rejections, missing fetch abort signals, unmanaged timer leaks, state race conditions.
+   - Type Coercion: Implicit boolean conversions, regex truncation on delimiter boundaries.
+
+---
+
+## Convergence & Prioritization
+
+When an Adversary attack class and an Architect AST invariant both flag the exact same code location, declare a **Converged High-Confidence Defect (P0)**.
+
+---
+
+## Severity Levels
+
+### Blocker (P0)
+- Converged defects: Any line where an architectural flaw directly enables an exploitable attack class.
+- Critical vulnerabilities: Arbitrary command execution, unrestricted SSRF, cleartext secret exposure, DOM XSS.
+
+### Major (P1)
+- Architectural bugs: Unhandled Promise rejections, missing error boundaries, potential memory leaks in production paths.
+- High-severity security issues: Missing rate limits on expensive operations, permissive CORS.
+
+### Minor (P2)
+- Code style, non-critical refactor suggestions, documentation omissions.
+
+---
+
+## Ignored Paths
+- `node_modules/**`
+- `dist/**`
+- `coverage/**`
+REVIEW_EOF
+    echo "Output: $out/REVIEW.md"
+    echo "Install: cp $out/REVIEW.md .github/REVIEW.md"
+}
+
 case "$PLATFORM" in
     claude)       convert_claude ;;
     antigravity)  convert_antigravity ;;
     cursor)       convert_cursor ;;
     windsurf)     convert_windsurf ;;
     codex)        convert_codex ;;
+    review-md)    convert_review_md ;;
     all)
         convert_claude
         convert_antigravity
         convert_cursor
         convert_windsurf
         convert_codex
+        convert_review_md
         ;;
     *)
         echo "Error: Unknown platform '$PLATFORM'"

@@ -13,6 +13,7 @@ export function parseCliArgs(argv = []) {
     output: 'doublecheck-report.md',
     doctorOnly: false,
     findingsFile: '',
+    initReview: false,
     help: false
   };
 
@@ -32,6 +33,8 @@ export function parseCliArgs(argv = []) {
       config.output = args.shift() || 'doublecheck-report.md';
     } else if (current === '--doctor-only') {
       config.doctorOnly = true;
+    } else if (current === '--init-review' || current === '--init-review-md') {
+      config.initReview = true;
     } else if (current === '--findings') {
       config.findingsFile = args.shift() || '';
     } else if (!current.startsWith('-') && config.targetPath === '.') {
@@ -58,6 +61,7 @@ export function printHelp() {
   -f, --format <format>  Report format: 'markdown', 'json', or 'both' (default: markdown)
   -o, --output <file>    Output destination file (default: doublecheck-report.md)
   --findings <file>      Path to pre-computed Cloudflare findings JSON
+  --init-review          Generate .github/REVIEW.md for Claude Code Review
   --doctor-only          Check local environment and exit
   -h, --help             Show this help message
 
@@ -68,11 +72,73 @@ export function printHelp() {
 `);
 }
 
+export function generateDefaultReviewMd() {
+  return `# Code Review Guidelines
+
+This document configures automated code review behaviors for Claude Code Review on pull requests, enforcing the \`doublecheck\` multi-perspective review standard.
+
+---
+
+## Focus Areas
+
+1. **The Adversary Lens (Cloudflare Security Audit Standard):**
+   - AI & LLM Security: Detect prompt injection sinks, unvalidated tool parameter execution, homoglyph normalization bypasses.
+   - Client-Side Security: Unescaped \`innerHTML\`/\`outerHTML\`, DOM XSS sinks, sensitive token exposure in \`document.cookie\` or \`localStorage\`.
+   - Cloud & Deployment: Server-side request forgery (SSRF), unauthenticated proxies, wildcard CORS headers on credentialed endpoints.
+   - Cryptographic Integrity: Truncated digest hashes, nonces without domain separation, secrets in version control.
+
+2. **The Architect Lens (Alibaba Open Code Review Standard):**
+   - AST Correctness: Null dereferences, missing optional chaining on dynamic payloads, incomplete object spread defaults.
+   - Async & Concurrency: Unhandled promise rejections, missing fetch abort signals, unmanaged timer leaks, state race conditions.
+   - Type Coercion: Implicit boolean conversions, regex truncation on delimiter boundaries.
+
+---
+
+## Convergence & Prioritization
+
+When an Adversary attack class and an Architect AST invariant both flag the exact same code location, declare a **Converged High-Confidence Defect (P0)**.
+
+---
+
+## Severity Levels
+
+### Blocker (P0)
+- Converged defects: Any line where an architectural flaw directly enables an exploitable attack class.
+- Critical vulnerabilities: Arbitrary command execution, unrestricted SSRF, cleartext secret exposure, DOM XSS.
+
+### Major (P1)
+- Architectural bugs: Unhandled Promise rejections, missing error boundaries, potential memory leaks in production paths.
+- High-severity security issues: Missing rate limits on expensive operations, permissive CORS.
+
+### Minor (P2)
+- Code style, non-critical refactor suggestions, documentation omissions.
+
+---
+
+## Ignored Paths
+- \`node_modules/**\`
+- \`dist/**\`
+- \`coverage/**\`
+`;
+}
+
 export async function runCli(argv = process.argv.slice(2)) {
   const config = parseCliArgs(argv);
 
   if (config.help) {
     printHelp();
+    return 0;
+  }
+
+  if (config.initReview) {
+    const targetDir = config.targetPath === '.' ? process.cwd() : path.resolve(config.targetPath);
+    const githubDir = path.join(targetDir, '.github');
+    if (!fs.existsSync(githubDir)) {
+      fs.mkdirSync(githubDir, { recursive: true });
+    }
+    const targetFile = path.join(githubDir, 'REVIEW.md');
+    fs.writeFileSync(targetFile, generateDefaultReviewMd(), 'utf8');
+    console.log(`\n\x1b[32m✔\x1b[0m Created Claude Code Review configuration at \x1b[1m${targetFile}\x1b[0m`);
     return 0;
   }
 

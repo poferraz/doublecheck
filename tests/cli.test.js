@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { parseCliArgs } from '../src/cli.js';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import { parseCliArgs, runCli } from '../src/cli.js';
 
 describe('CLI Argument Parser', () => {
   it('defaults to current directory and markdown output when no flags supplied', () => {
@@ -27,5 +30,28 @@ describe('CLI Argument Parser', () => {
     expect(config.format).toBe('json');
     expect(config.output).toBe('audit.json');
     expect(config.doctorOnly).toBe(true);
+  });
+
+  it('correctly parses --init-review flag', () => {
+    const config = parseCliArgs(['--init-review']);
+    expect(config.initReview).toBe(true);
+  });
+
+  it('generates .github/REVIEW.md in target directory when runCli is invoked with --init-review', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dc-test-init-'));
+    try {
+      const exitCode = await runCli(['--init-review', tempDir]);
+      expect(exitCode).toBe(0);
+
+      const generated = path.join(tempDir, '.github', 'REVIEW.md');
+      expect(fs.existsSync(generated)).toBe(true);
+
+      const content = fs.readFileSync(generated, 'utf8');
+      expect(content).toContain('Cloudflare Security Audit Standard');
+      expect(content).toContain('Alibaba Open Code Review Standard');
+      expect(content).toContain('Severity Levels');
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 });
