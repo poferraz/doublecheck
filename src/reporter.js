@@ -1,5 +1,12 @@
-function normalizePath(p = '') {
-  return p.replace(/\\/g, '/').replace(/^\.?\//, '').trim();
+import path from 'path';
+
+export function normalizePath(p = '') {
+  const unified = p.replace(/\\/g, '/');
+  const normalized = path.posix.normalize(unified);
+  return normalized
+    .replace(/^(?:\.\.\/?)+/, '')
+    .replace(/^\.?\//, '')
+    .trim();
 }
 
 export function detectConvergence(cfFindings = [], aliComments = []) {

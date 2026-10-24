@@ -1,32 +1,51 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 
 export async function defaultAlibabaRunner(targetPath, options = {}) {
-  const outputFile = path.join(
-    options.tempDir || '/tmp',
-    `doublecheck_ocr_${Date.now()}.json`
-  );
-
-  const modelArg = options.model ? `--model ${options.model}` : '';
-  const concurrencyArg = options.concurrency ? `--concurrency ${options.concurrency}` : '--concurrency 4';
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'doublecheck-'));
+  const outputFile = path.join(tempDir, 'output.json');
 
   const resolved = path.resolve(targetPath || '.');
   const isDirectory = fs.existsSync(resolved) && fs.statSync(resolved).isDirectory();
-  const repoArg = isDirectory ? `--repo "${resolved}"` : '';
-  const pathArg = !isDirectory ? `--path "${resolved}"` : '';
+
+  const args = ['scan'];
+  if (isDirectory) {
+    args.push('--repo', resolved);
+  } else {
+    args.push('--path', resolved);
+  }
+  args.push(
+    '--format', 'json',
+    '-o', outputFile,
+    '--no-plan',
+    '--concurrency', String(options.concurrency || 4)
+  );
+
+  if (options.model) {
+    args.push('--model', options.model);
+  }
+
+  const runner = options.execFileSync || execFileSync;
 
   try {
-    const cmd = `ocr scan ${repoArg} ${pathArg} --format json -o "${outputFile}" --no-plan ${concurrencyArg} ${modelArg}`.replace(/\s+/g, ' ').trim();
-    execSync(cmd, { stdio: 'pipe', encoding: 'utf8', timeout: options.timeout || 300000 });
+    runner('ocr', args, {
+      stdio: 'pipe',
+      encoding: 'utf8',
+      timeout: options.timeout || 300000
+    });
 
     if (fs.existsSync(outputFile)) {
       const raw = JSON.parse(fs.readFileSync(outputFile, 'utf8'));
-      try { fs.unlinkSync(outputFile); } catch {}
       return raw.comments || (Array.isArray(raw) ? raw : []);
     }
   } catch (err) {
     throw new Error(`Alibaba OCR scan failed: ${err.message}`);
+  } finally {
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch {}
   }
 
   return [];

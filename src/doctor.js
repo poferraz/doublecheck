@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 
 const PREFERRED_MODELS = [
   'deepseek-v4.1-flash:1017-cloud',
@@ -67,8 +67,10 @@ export async function checkEnvironment(options = {}) {
 
   // 3. Check for Alibaba OCR CLI tool
   if (!options.skipOcrCheck) {
+    const lookupCmd = process.platform === 'win32' ? 'where' : 'which';
+    const runner = options.execFileSync || execFileSync;
     try {
-      execSync('which ocr', { stdio: 'ignore' });
+      runner(lookupCmd, ['ocr'], { stdio: 'ignore' });
       ocrAvailable = true;
     } catch {
       warnings.push(

@@ -1,7 +1,15 @@
-import { describe, it, expect, vi } from 'vitest';
-import { runDualAudit } from '../src/orchestrator.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import * as childProcess from 'child_process';
+import { runDualAudit, defaultAlibabaRunner } from '../src/orchestrator.js';
 
 describe('Dual-Perspective Audit Orchestrator', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('executes both lenses and collects raw findings from Cloudflare and Alibaba', async () => {
     const mockCloudflareRunner = vi.fn().mockResolvedValue([
       {
@@ -60,5 +68,56 @@ describe('Dual-Perspective Audit Orchestrator', () => {
     expect(results.cloudflareFindings).toHaveLength(1);
     expect(results.alibabaComments).toHaveLength(0);
     expect(results.errors).toContainEqual(expect.stringContaining('OCR engine timeout'));
+  });
+
+  it('executes Alibaba OCR runner using parameterized arguments without shell interpolation', async () => {
+    let capturedCmd = '';
+    let capturedArgs = [];
+
+    const mockExecFileSync = vi.fn((cmd, args) => {
+      capturedCmd = cmd;
+      capturedArgs = args;
+      const outIdx = args.indexOf('-o');
+      const outputFile = args[outIdx + 1];
+      fs.writeFileSync(outputFile, JSON.stringify({
+        comments: [{ path: 'test.js', start_line: 1, category: 'security' }]
+      }));
+      return '';
+    });
+
+    const maliciousPath = 'src/test"; rm -rf /; echo "';
+    const comments = await defaultAlibabaRunner(maliciousPath, {
+      model: 'test-model',
+      execFileSync: mockExecFileSync
+    });
+
+    expect(mockExecFileSync).toHaveBeenCalled();
+    expect(capturedCmd).toBe('ocr');
+    // Ensure the malicious string is passed as an isolated literal argument, NOT executed in a shell
+    expect(capturedArgs).toContain(path.resolve(maliciousPath));
+    expect(comments).toHaveLength(1);
+  });
+
+  it('creates secure isolated temporary directories for OCR output and cleans them up', async () => {
+    let capturedTempDir = '';
+
+    const mockExecFileSync = vi.fn((cmd, args) => {
+      const outIdx = args.indexOf('-o');
+      const outputFile = args[outIdx + 1];
+      capturedTempDir = path.dirname(outputFile);
+      // Temp directory should exist while process runs
+      expect(fs.existsSync(capturedTempDir)).toBe(true);
+      expect(capturedTempDir).toContain('doublecheck-');
+
+      fs.writeFileSync(outputFile, JSON.stringify({ comments: [] }));
+      return '';
+    });
+
+    await defaultAlibabaRunner('./src', {
+      execFileSync: mockExecFileSync
+    });
+
+    // After execution finishes, temp directory should be cleaned up
+    expect(fs.existsSync(capturedTempDir)).toBe(false);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectConvergence, synthesizeReport } from '../src/reporter.js';
+import { detectConvergence, synthesizeReport, normalizePath } from '../src/reporter.js';
 
 describe('Convergence Synthesizer & Reporter', () => {
   const sampleCloudflare = [
@@ -67,5 +67,12 @@ describe('Convergence Synthesizer & Reporter', () => {
     expect(report.markdown).toContain('Priority 0 (Immediate Fixes)');
     expect(report.json).toBeDefined();
     expect(report.json.summary.convergedDefects).toBe(1);
+  });
+
+  it('normalizes paths safely and strips relative path traversal sequences', () => {
+    expect(normalizePath('../../etc/passwd')).toBe('etc/passwd');
+    expect(normalizePath('..\\..\\secret.js')).toBe('secret.js');
+    expect(normalizePath('./src/main.js')).toBe('src/main.js');
+    expect(normalizePath('src/../main.js')).toBe('main.js');
   });
 });
