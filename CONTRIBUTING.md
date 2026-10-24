@@ -34,6 +34,7 @@ Thank you for your interest in contributing to `doublecheck`! We are building a 
 - **Test-Driven Development (TDD):** Every bugfix, attack class, and CLI feature must carry unit tests in `tests/`.
 - **Zero Cloud Invariant:** The core runner must always function 100% locally via Ollama with zero mandatory cloud API keys.
 - **Agent Skills Compliance:** Any enhancements to `skills/doublecheck/SKILL.md` must adhere to the [Agent Skills specification](https://agentskills.io/specification).
+- **Process & Filesystem Security:** Never use shell string interpolation in process execution (always use `execFileSync` with argument arrays); isolate all temp files via `fs.mkdtempSync`.
 - **Security First:** Never commit credentials, private tokens, or real victim target dumps.
 
 ---
@@ -44,3 +45,8 @@ Thank you for your interest in contributing to `doublecheck`! We are building a 
 2. Commit your changes: `git commit -am 'feat: add new attack class'`.
 3. Push to the branch: `git push origin feature/my-new-feature`.
 4. Open a Pull Request with a clear summary of your changes.
+
+### Automated Pull Request Review
+Pull requests in this repository are analyzed automatically by [Claude Code Review](https://code.claude.com/docs/en/code-review) guided by [`.github/REVIEW.md`](.github/REVIEW.md).
+- Reviews flag command execution risks, async promise rejections, and test mocking invariants as inline PR comments.
+- Review checks are advisory and non-blocking, but maintainers require resolving all P0 (Blocker) findings prior to merge approval.

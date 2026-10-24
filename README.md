@@ -78,6 +78,9 @@ npx @poferraz/doublecheck ./src --model deepseek-v4.1-flash:1017-cloud
 
 # Export to both Markdown and machine-readable JSON
 npx @poferraz/doublecheck . --format both -o security-report.md
+
+# Initialize Claude Code Review configuration (.github/REVIEW.md)
+npx @poferraz/doublecheck --init-review
 ```
 
 ### 2. AI Coding Agent Mode
@@ -94,12 +97,41 @@ bash doublecheck/scripts/convert.sh claude
 
 # Cursor (.cursor/rules/)
 bash doublecheck/scripts/convert.sh cursor
+
+# Claude Code Review (.github/REVIEW.md)
+bash doublecheck/scripts/convert.sh review-md
 ```
 
 In your agent session:
 ```markdown
 /doublecheck
 ```
+
+---
+
+## 🛡️ Multi-Layer Defense-in-Depth: Inner Loop + Outer Loop
+
+`doublecheck` acts as the foundational **Inner Loop** for software security and architectural integrity, while seamlessly bridging into cloud-based **Outer Loop** pull request review systems like [Anthropic's Claude Code Review](https://code.claude.com/docs/en/code-review):
+
+```mermaid
+flowchart LR
+    subgraph InnerLoop ["Tier 1: Local Inner Loop (doublecheck)"]
+        Dev["Local Workstation"] --> DC["npx @poferraz/doublecheck .\nor /doublecheck Agent Skill"]
+        DC --> Ollama["100% Local Ollama\n(Zero Token Cost · Private)"]
+        Ollama --> P0["Instant P0 Convergence Fixes"]
+    end
+
+    subgraph OuterLoop ["Tier 2: Cloud Outer Loop (Claude Code Review)"]
+        P0 --> GitPush["git push / PR"]
+        GitPush --> CCR["Claude Code Review App\n(Configured via .github/REVIEW.md)"]
+        CCR --> Annotations["Inline PR Review Comments\nNon-blocking Check Runs"]
+        Annotations --> Merge["Maintainer Merge Sign-off"]
+    end
+```
+
+- **Tier 1 (Inner Loop):** Runs locally via Ollama before committing. Eliminates high-confidence converged defects at zero cost without sending private IP over the wire.
+- **Tier 2 (Outer Loop):** Automatically triggered on pull requests. Claude Code Review reads `.github/REVIEW.md` (generated via `npx @poferraz/doublecheck --init-review`) and applies whole-repository multi-agent verification before merge.
+- **Convergence Consensus:** When an Adversary exploit class and an Architect AST invariant independently flag the same line in both local and remote checks, defect confidence reaches near 100%.
 
 ---
 
