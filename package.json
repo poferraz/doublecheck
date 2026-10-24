@@ -11,7 +11,8 @@
     "bin",
     "src",
     "skills",
-    "scripts"
+    "scripts",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "test": "vitest run",
