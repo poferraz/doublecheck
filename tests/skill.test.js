@@ -19,9 +19,16 @@ describe('Universal Agent Skill Specification', () => {
     expect(frontmatter).toContain('description:');
   });
 
-  it('includes all required reference manuals (attack-classes, rulesets, convergence)', () => {
+  it('includes all required reference manuals (attack-classes, rulesets, convergence, defense-in-depth)', () => {
     expect(fs.existsSync(path.join(refDir, 'attack-classes.md'))).toBe(true);
     expect(fs.existsSync(path.join(refDir, 'rulesets.md'))).toBe(true);
     expect(fs.existsSync(path.join(refDir, 'convergence.md'))).toBe(true);
+    expect(fs.existsSync(path.join(refDir, 'defense-in-depth.md'))).toBe(true);
+  });
+
+  it('references defense-in-depth and Claude Code Review in SKILL.md instructions', () => {
+    const content = fs.readFileSync(skillFile, 'utf8');
+    expect(content).toContain('references/defense-in-depth.md');
+    expect(content).toContain('REVIEW.md');
   });
 });

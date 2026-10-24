@@ -43,6 +43,11 @@ Compare the findings from both lenses against the rubric in [references/converge
 2. **Generate Drop-in Fixes:** Provide concrete, diff-ready code snippets with tests.
 3. **Output Report:** Render the unified markdown scorecard and matrix.
 
+### Step 5: Multi-Layer Defense-in-Depth & PR Alignment
+For repositories configured with [Claude Code Review](https://code.claude.com/docs/en/code-review):
+- Refer to [references/defense-in-depth.md](references/defense-in-depth.md) for reconciling local inner-loop audits with remote pull request reviews.
+- Generate or verify `.github/REVIEW.md` (`npx @poferraz/doublecheck --init-review`) to ensure remote PR checks enforce the dual-lens standard.
+
 ---
 
 ## 2. CLI Quick Reference
@@ -56,4 +61,7 @@ npx @poferraz/doublecheck . --model deepseek-v4.1-flash:1017-cloud
 
 # JSON output
 npx @poferraz/doublecheck . --format json -o doublecheck-report.json
+
+# Initialize Claude Code Review configuration (.github/REVIEW.md)
+npx @poferraz/doublecheck --init-review
 ```
