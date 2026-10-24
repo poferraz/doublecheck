@@ -1,6 +1,4 @@
-<p align="center">
-# `doublecheck`
-</p>
+<h1 align="center"><code>doublecheck</code> 🔍⚖️</h1>
 
 
 <p align="center">
