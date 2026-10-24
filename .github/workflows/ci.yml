@@ -31,3 +31,9 @@ jobs:
 
     - name: Verify CLI executable help and flag parsing
       run: ./bin/doublecheck.js --help
+
+    - name: Verify CLI pre-flight doctor check
+      run: node ./bin/doublecheck.js --doctor-only || true
+
+    - name: Verify Claude Code Review configuration
+      run: test -f .github/REVIEW.md
