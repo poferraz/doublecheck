@@ -1,0 +1,1516 @@
+{
+  "reviewDate": "2026-10-24",
+  "sourceReviewCommit": "65b3b63d275e7e2ede0b75d78c46c28c077b8e44",
+  "sourceReportSchema": "doublecheck/report/v2",
+  "note": "Separate human/agent triage record; original model findings/verdicts are preserved. Reviewed grades reflect demonstrated impact, not the original high labels. Only six high candidates received full regression-backed repair verification; other dispositions state limits explicitly. No model precision/recall claim.",
+  "counts": {
+    "deferred": 43,
+    "needs_validation": 27,
+    "rejected_as_reported": 9,
+    "addressed_related_case": 6,
+    "confirmed_fixed": 6,
+    "partially_rejected": 2
+  },
+  "entries": [
+    {
+      "id": "architect:0580fe2cc9d5558bdbec19af6896f2180d01183172412579851571a5a842b056",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "tests/helpers/results.js",
+          "startLine": 5,
+          "endLine": 5,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`comment` is a single mutable object shared across test files. Tests that adjust fields (e.g. severity/path) on it will leak that mutation into subsequent tests, causing order-dependent failures. Expose it as a frozen constant or a factory that returns a fresh copy.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:068403b7dbec33c44a03be8b2ab4345fb8ee4ad0360461a5104183a72ab0a102",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": ".github/workflows/ci.yml",
+          "startLine": 10,
+          "endLine": 11,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Neither the `test` job nor the `consumer` job sets `timeout-minutes`, so a hung Vitest process (or a stuck child process spawned by `tests/cli.integration.test.js`, `npm pack`, `tar`, or the child CLI processes in `consumer`) can hold the runner until GitHub's 6-hour default, wasting runner minutes and blocking PR feedback. Set an explicit timeout on both jobs.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:093cbdf0574905f480cbd6c0c900cf5e3d6a452154a6966834cfa110cbf7a4f9",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/index.js",
+          "startLine": 2,
+          "endLine": 6,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The barrel file is the package entry point (`\"main\": \"./src/index.js\"`), but several public capabilities are not re-exported: `correlateFindings`/`deduplicateFindings` (src/correlation.js), `resolveOutputPaths`/`writeReports` (src/output.js), `resolveInferencePolicy`/`normalizeEndpoint` (src/inference-policy.js) and `initializeReviewConfig` (src/review-config.js). Consumers of the published package therefore cannot reach them without importing internal paths (which are not guaranteed by the public contract). Either re-export them here or record explicitly why they stay internal.",
+      "disposition": "rejected_as_reported",
+      "evidence": "Additional public exports are a feature/API policy choice; current supported exports are documented. No missing required export reproduced."
+    },
+    {
+      "id": "architect:0b81a1045264960cb2aa2b42fb339eb10f8f3c9c74f14a56a2981f5e5e4fe366",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/reporter.js",
+          "startLine": 31,
+          "endLine": 32,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Spreading an unbounded array (`Math.max(4, ...runs)` for backtick runs, or `diagnostics.push(...engine.diagnostics)`) can exceed the engine's argument limit and throw `RangeError`, aborting report synthesis. Use `reduce`/iteration instead of spreading, and cap caller-supplied arrays where appropriate.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:0c1c8ed4f0137043132b8c0345b592d6cca2b25864c3c778e66f66cf1db9d731",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "bin/doublecheck.js",
+          "startLine": null,
+          "endLine": null,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`process.exit(code)` terminates the process immediately and can truncate buffered stdout/stderr when output is piped (e.g. `doublecheck . > report.txt`), so part of the review summary may be lost. Prefer setting `process.exitCode` and letting the process exit naturally; this also allows replacing the promise chain with top-level `await`, which matches the project's async style and removes the `.then/.catch` nesting.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:0c45883202a6396ca9fa3c522b8350226bbb3176441e86fba8a04d376b1d6c62",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": ".github/workflows/ocr-contract.yml",
+          "startLine": 16,
+          "endLine": 18,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "This step mutates the runner's *user-global* OCR config (`ocr config set`), which is process/step-transient state: if `ocr config set` is a no-op or the CLI writes to a different path than `test:ocr-contract` reads, the run fails later with a confusing \"provider not found\" instead of at this step. It also leaves a provider definition plus an `api_key` value on disk for the remainder of the job. Consider asserting the config was actually persisted (e.g. `ocr config get provider`) right after writing it, so a provisioning failure is reported where it happens.",
+      "disposition": "rejected_as_reported",
+      "evidence": "The native workflow intentionally provisions a synthetic provider in a disposable runner. It does not change developer configuration; placeholder credentials are non-secret."
+    },
+    {
+      "id": "architect:0c60086369b7c7d0e39c5140aa7f2ebed71774db9fc4582e5d2f2765baa3f5be",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/contracts.js",
+          "startLine": 16,
+          "endLine": 16,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`text()` accepts arbitrary control characters in title/description/remediation, while paths are already screened for `\\x00-\\x1f` and the pinned upstream schema marks these fields `visibleContent`. Since titles/descriptions come from model output and are later written to the terminal and to Markdown (the reporter only escapes Markdown syntax, not escape sequences), a payload can carry ANSI/terminal escapes (`\\x1b`) or other control bytes into reports. Reject non-printable control characters here (allowing `\\n`/`\\t` for legitimate multi-line text).",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:0f91962def74255cadc22005fa85e220ca7618adb8b0882a45e894719bfc3def",
+      "sourceSeverity": "high",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "scripts/verify-ocr-contract.mjs",
+          "startLine": 32,
+          "endLine": 32,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`find()` can return `undefined` (engine missing from the report, or `report.engines` absent), in which case the following `engine.status` access throws `TypeError: Cannot read properties of undefined` instead of producing a meaningful assertion failure. Assert the engine was found before dereferencing it (and guard `report.engines`).",
+      "disposition": "rejected_as_reported",
+      "evidence": "Missing engine causes the native contract check to fail nonzero already. The reported TypeError affects diagnostics, not acceptance of a broken review. Clearer assertion text is deferred minor polish."
+    },
+    {
+      "id": "architect:106d30d9002e41681330491e6dee8e4a6cdccb2c1a458e798299083cf8d08c68",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": ".github/release-drafter.yml",
+          "startLine": 21,
+          "endLine": 31,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The `version-resolver` relies on `major`/`minor`/`patch` labels that are not referenced anywhere else in this repository (no label definitions and no issue/PR template uses them). If these labels are never applied, every release silently resolves to `patch`, so a breaking change would be published as a patch release. Either document/create these labels (e.g. `.github/labels.yml`) or drive versioning from existing labels (e.g. map `bug`\u2192patch, `feature`/`enhancement`\u2192minor).",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:124f077ff31a5af3dc3406f2045053d95bddb295b429837cd85510da8c435e60",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/engine-result.js",
+          "startLine": 51,
+          "endLine": 51,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Only `rejectionReason`, `blockers` and `validationPlan` are checked. The remaining `verification` sub-fields produced by `contracts.normalizeRecord` (`rootCause`, `intendedBehavior`, `conditions`, `execution`, `severityAssessment`, and especially `trace[]`/`codeChanges[]` with their `file` paths) are accepted with any type/value. This bypasses the path canonicalization / containment check that locations and evidence go through, so absolute or `../` paths can reach downstream report consumers. Validate the known sub-fields (or re-canonicalize `trace[].file` and `codeChanges[].file`) and drop/whitelist unknown keys.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:14351329a4780db1d6c63a72723131e09f6bd14614d547367eaf2cd3c0aef773",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/orchestrator.js",
+          "startLine": 21,
+          "endLine": 21,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The empty `catch {}` blocks hide all git failures (binary missing, timeout, permission), silently degrading `targetRoot` to the scanned directory and `revision` to `null`; the resulting provenance cannot be distinguished from \"not a git repo\". Also, `rev-parse HEAD` ignores a dirty working tree, so the recorded revision may not match the files actually scanned. Consider surfacing a diagnostic and/or recording a dirty flag.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:1bb65e097e9194de44abb3dee3b1fd30b56922585e0148b9f234ab420d017911",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": ".github/workflows/ci.yml",
+          "startLine": 12,
+          "endLine": 14,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "With the default `fail-fast: true`, the first failing leg cancels the remaining Node versions, hiding whether a regression is version-specific (e.g. only on Node 26). Since all legs must succeed to gate the merge, disable fail-fast so the full compatibility picture is always reported.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:23711c42e68fdfa2629101e346727074c194a4b6279875e1eb2ee47ad2d95d8f",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/inference-policy.js",
+          "startLine": 26,
+          "endLine": 27,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Model matching is byte-exact: the earlier guard only trims for the emptiness check but `options.model` is compared untrimmed, and the implicit `:latest` alias is not tolerated. A padded `' qwen:latest '` therefore passes validation yet fails here, and `qwen` never matches a configured `qwen:latest` (the name Ollama reports from `/api/tags`), which breaks `checkEnvironment`, where `activeModel` comes from installed names. Compare normalized names (trimmed, `:latest` stripped) on both sides.",
+      "disposition": "addressed_related_case",
+      "evidence": "Default latest alias now matches configured/installed models; other tags remain distinct and padded names remain strict."
+    },
+    {
+      "id": "architect:26991a34443a6f42791e177896ac1016f35c66b4397307180eeb655d23fcc23e",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/orchestrator.js",
+          "startLine": 45,
+          "endLine": 45,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`options.concurrency || 4` silently coerces invalid values: `0`/`NaN` become 4, and negative/non-integer/huge values are passed straight to the child process as-is. Validate it like `validateScanTimeout` does instead of using `||`.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:2a32266ba0b68001b64cbd05aee5006555b0023fcf34204b225076234539e4c4",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/output.js",
+          "startLine": 44,
+          "endLine": 45,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The re-validation performed inside `writeReports` is called as `validate(paths)` without `protectedInputs`, so the second (TOCTOU-defense) check silently loses the \"reports must not replace review inputs\" guard that `resolveOutputPaths` applied. If a destination is swapped for a hardlink to a review input between the two checks, only the inode check would catch it \u2014 and that check is disabled here because `protectedInodes` is empty. Pass the protected inputs through to `writeReports` and forward them to both `validate` calls.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:2a7505597ea46fe56cf14ace90247fab14551e634d529ac6887ba4c2e3e3fee8",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/orchestrator.js",
+          "startLine": 82,
+          "endLine": 83,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`result.provenance.revision` is already assigned right after `emptyEngine(...)` at the top of the function; this second assignment is redundant. (Conversely, in the recovered-session branch `provider`/`endpoint` are never filled in while `model` is, leaving inconsistent provenance \u2014 worth aligning.)",
+      "disposition": "rejected_as_reported",
+      "evidence": "Requested routing and actual reported identity intentionally remain distinct. Filling unknown actual provider/endpoint from requested values would invent attribution."
+    },
+    {
+      "id": "architect:347f316d3a03e3a91cd2128cf75c3d83e9111c4730153af937c6da3fe0556773",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": ".gitignore",
+          "startLine": 8,
+          "endLine": 8,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The negation whitelists `.env.example`, but no such file exists in the repository, so the exception is currently dead configuration and there is no discoverable template for the expected environment variables. Either add the `.env.example` template (with placeholder values only) or drop the negation to keep the rules honest. Consider also whitelisting only exact template names, since `.env.*` would otherwise keep e.g. `.env.example.local` ignored.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:34badfa05d2708989d30f49936c8c4b474c689a919cc415528cfb27265f93b1b",
+      "sourceSeverity": "high",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": ".github/release-drafter.yml",
+          "startLine": 16,
+          "endLine": 19,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The `categories` list does not line up with the labels actually used in this repo, which loses PRs from the generated notes in two ways. (1) There is no catch-all category, and Release Drafter only includes a merged PR when it matches a listed category (or is filtered by `exclude-labels`), so PRs labeled `chore`, `refactor`, `test`, `dependencies`, or left unlabeled are silently dropped \u2014 add a fallback category keyed on `'*'` at the end. (2) Several labels referenced here (`feature`, `security`, `hardening`, `fix`, `docs`) appear nowhere else in the repository; the existing templates only use `enhancement`, `rule` and `bug`, so PRs tagged `rule` (used by `attack_class_request.md`) or with project-specific labels are omitted and the `Security & Hardening` section stays almost always empty. Align the category labels with the labels the repo actually uses.",
+      "disposition": "rejected_as_reported",
+      "evidence": "The upstream v6 implementation keeps otherwise uncategorized PRs and inserts them in the changelog. Category labels do not filter inclusion. No release-drafter workflow is configured in this checkout; external GitHub App installation was not inspected. https://github.com/release-drafter/release-drafter/blob/v6/lib/releases.js"
+    },
+    {
+      "id": "architect:3c86e7b1231d17f43a4e9480a98971b1e620ce5fbba6e735a4917fbbd4ab4a2a",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "package.json",
+          "startLine": 14,
+          "endLine": 14,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Shipping the whole `scripts/` directory publishes development-only helpers (`smoke-consumer.mjs`, `verify-ocr-contract.mjs`, `helpers/mock-ollama.mjs`, `convert.sh`) that are only used by CI and are not part of the tool contract. Consider narrowing this to the specific script(s) consumers actually need, otherwise `skills/` is the only non-source artifact that should ship.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:3cb5c5e2de73e77ece685483003fa8024ed606ddbcf0cd3d5752c68ce32e4522",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/orchestrator.js",
+          "startLine": 122,
+          "endLine": 122,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The error is discarded here, so a crashing engine and an invalid custom-engine payload (`FindingValidationError` from `validateCustomEngine`) are indistinguishable; the final `errors` array only contains the generic \"<source> review failed\". At minimum keep the error message/diagnostic so users can act on it.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:3dd0b84d88dc429fd3782bcd4f5936805783b354a1b8383aa7974059614ce34a",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/inference-policy.js",
+          "startLine": 24,
+          "endLine": 24,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`normalizeEndpoint(entry.url)` is evaluated inside this `if`, so an invalid/unacceptable provider URL throws the generic `Invalid Ollama endpoint.` / `Endpoint must use HTTP(S)...` error from `normalizeEndpoint` before the intended provider-mismatch message is reached. The reported error then points at the wrong object (the Ollama endpoint instead of the configured provider URL). Validate shape first, then normalize in a guarded block so both failures produce an actionable provider-specific error.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:44974886de54b91bd1ac816c547246613091bb6c5c3417d9feac34255a436473",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/engine-result.js",
+          "startLine": 49,
+          "endLine": 49,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The project rules forbid loose equality. Replace `!= null` and `== null` with explicit `!== null && !== undefined` checks, or a single documented helper, making the intent clear and consistent.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:4a8d6490b15c3d5771344c85c6385ad9409a35bcf9e017968ab00cb45e068a56",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": ".github/workflows/ci.yml",
+          "startLine": 7,
+          "endLine": 8,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "No `concurrency` control at workflow level: every push to a branch with an open PR (and rapid successive pushes) starts a second full matrix run, so stale runs keep consuming runners and can report confusing late failures. Add a concurrency group and cancel superseded PR runs (keep push runs on `main` uncancelled).",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:4b4353c6ce4bcab59cddaa3fa7c99aa4fa1a694e36e87bbcd2d95e6b2dd3430b",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "scripts/convert.sh",
+          "startLine": 32,
+          "endLine": 34,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`usage()` writes to stdout and `exit 1`, so (a) invoking the script with no arguments at all (or with `-h`/`--help`, which currently falls through to the unknown-platform error) returns a failure code and pollutes stdout, and (b) option-parsing errors reuse the same path without an explanatory message. Consider writing usage text to stderr on error, supporting an explicit `-h|--help` that exits 0, and emitting a short error line before printing usage for malformed invocations.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:4c0fe0c1cb4b56e356ccb9d39c7c7a09bcec5befae9c8aaf7920394bccae9bcc",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/cli.js",
+          "startLine": 69,
+          "endLine": 69,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The catch-all clause discards the thrown error entirely and always prints the same generic text. Real operational failures (permission denied, ENOSPC on report write, unexpected internal `TypeError`, invalid JSON in `--findings`) become indistinguishable from a bad CLI argument, which makes support/debugging impossible. Capture the error and surface its (sanitized) message while keeping the generic hint.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:4d47e18d80431870b6376568590a1df8c3360951d8abed6ff729ecd4fdc43eba",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/cli.js",
+          "startLine": 66,
+          "endLine": 66,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "This is a nested ternary expression, which the project rules explicitly forbid (and it is hard to read at a glance). Replace it with a plain if/else chain that assigns the message before logging.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:51404df7c3bc6185a190b4521828e3da7670e6d7fef672b196605d4e12bfbe97",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/correlation.js",
+          "startLine": 5,
+          "endLine": 7,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "These exported helpers dereference the arguments without any guard: `findings.map` throws when `findings` is undefined/null, and `f.locations` throws for any finding whose `locations` is missing (e.g. a hand-built or partially normalized finding). Since both functions are public module exports, a bad call fails with an opaque `TypeError` instead of a clear contract error. Validate the array arguments up front and iterate `f.locations ?? []`.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:5192b688d5de80b9f138d8849e235d12c600bd70ce5190e5bb9faa934255ab93",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/orchestrator.js",
+          "startLine": 117,
+          "endLine": 117,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The two engines are independent, but they are awaited sequentially inside the loop. Use `Promise.all` over the required sources so async/custom runners run concurrently (and so a slow adversary doesn't delay the architect).",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:52d09c24e577fbc3cdf1cf2f85e98e7555309cf59e58df7998162af48e33f153",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/engine-result.js",
+          "startLine": 37,
+          "endLine": 37,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`v ?? null` overwrites the defaults seeded by `emptyEngine` (`tool`, `mode`, `targetRoot`) with `null` whenever the custom engine omits a field. An engine that reports no `targetRoot` therefore yields a report with no audited root, and the TARGET_MISMATCH guard below is bypassed because it is falsy. Keep the computed defaults instead of nulling them.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:54f58beb25192dfce47188bacbf1d2e340263078d5b0d2d5094ab63af2fcf8fc",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/review-config.js",
+          "startLine": 8,
+          "endLine": 13,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The `try` block covers more than the existence probe: it also covers `readFileSync` and the content comparison. Because the handler treats *any* `ENOENT` as \"file does not exist\", a genuine `ENOENT` raised by `fs.readFileSync` (file removed/renamed between `lstatSync` and the read) is swallowed while `exists` is already `true`. Execution then falls into the replace branch and the function reports `action: 'replaced'` even though it actually created the file. It also means errors such as `ENOTDIR`/`EACCES` surface as raw Node errors with no context. Narrow the `try` to the `lstatSync` call only and keep the state transitions explicit.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:5bbbc3db7473c33c60311849970c6afbf876bf01485a5ed16c44b5203cedcfbb",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/correlation.js",
+          "startLine": 15,
+          "endLine": 17,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The overlap rule encoded here (inclusive `max(start) <= min(end)` intersection, so line 10 and range 11-20 are *not* considered corroborating, and single-line locations fall back to their own start line) is non-obvious business logic and is not documented anywhere in the file. Please add a short comment describing the overlap/adjacency semantics so future refactors (e.g. switching to half-open ranges) don't silently change which findings are treated as corroborated. Also consider un-nesting the two `for` statements onto separate lines for readability.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:68698b9e070d0545ef859de878f117422043825961459cb15887cf9844747fa8",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/inference-policy.js",
+          "startLine": 23,
+          "endLine": 23,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`provider` is validated with a permissive regex (`[A-Za-z0-9_-]+`) and then used to index `config.custom_providers` via the prototype chain. Names such as `__proto__`, `constructor`, or `prototype` resolve to inherited members instead of a configured entry, so the lookup can return a non-provider object (for example `Object.prototype`) rather than the intended `undefined`. Guard the lookup with an own-property check (and/or reject those reserved names) so only explicitly configured providers are inspected.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:68b283df56bd81e004e4d7cb6c38e5531f44ccb9de4a02a2a7cdc7442708a154",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "package.json",
+          "startLine": 43,
+          "endLine": 43,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "This is a scoped package (`@poferraz/doublecheck`) but there is no `publishConfig` entry. Scoped packages default to restricted access on the public registry, so `npm publish` will fail (or silently publish a private package) unless `--access public` is passed manually. Declare it in the manifest so publishing is reproducible.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:697ca71707ad052b54d0cb3b56e30daa41e7817300ad328d78ae29fcfaac0e0f",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": ".github/workflows/ocr-contract.yml",
+          "startLine": 15,
+          "endLine": 15,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Installing a third-party package globally from the registry at run time executes its package install scripts with the runner's privileges, and there is no integrity/lockfile pinning (an npm version tag can be unpublished/republished in some registries/mirrors). Since this job runs untrusted-ish third-party code before any test, consider installing with `--ignore-scripts` (or into a temp prefix and verifying `ocr version` + a checksum) to reduce supply-chain exposure. Pinning the exact `1.13.3` version itself is good.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:6b8d678ccb457c02fc467a014033e99fbc400b5d9180843792a1857bce8fd8ab",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/doctor.js",
+          "startLine": 26,
+          "endLine": 28,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The caught `error` binding is never read, so it is a dead variable; declare `catch {` instead. Also note the catch collapses genuinely different failures (DNS/connection refused, missing model, remote endpoint, provider mismatch) into one message, which makes this diagnostic command hard to act on. Keep the sanitization intent but branch on error codes/types, or at least drop the unused binding.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:6e53a4e5834794d0bdad4f61b266e67072e127af6a3dd3afe8129d24ff761bc7",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/output.js",
+          "startLine": 47,
+          "endLine": 47,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The catch-all discards the underlying error, so a failed write (bad permissions, disk full, rename across devices, invalid `report` object, etc.) surfaces only as a generic `REPORT_WRITE_FAILED` with no cause. Capture the error and log its message to stderr (or extend the diagnostic with a message) so users can tell why the report was not saved.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:6fb27a8d2a35849879f6650afa7ab53260ce90af8b3d26e442056728124f5b5b",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "scripts/convert.sh",
+          "startLine": 4,
+          "endLine": 4,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The header comment omits `review-md`, which the `usage()` text and the `case` dispatcher both support. Keep the two lists in sync so readers of the script's synopsis do not miss the target.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:70b3864a04128b72347d51af6706b4df9cae1e53d549ab4cfe84b401d1f55112",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "scripts/convert.sh",
+          "startLine": 67,
+          "endLine": 67,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The link-rewrite pattern only matches names made of `[a-z-]`, while the `printf` anchor id and the Cursor file naming use the actual basename. A reference file containing a digit or underscore (e.g. `references/owasp-top10.md`) would be exported but its links would be left as `references/...md`, silently producing broken links in the consolidated outputs. Use a filename-class that matches real filenames, e.g. `([A-Za-z0-9_-]+)` \u2014 the same pattern is duplicated in `stream_references`/`convert_cursor` and should be shared in one variable.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:71e9c208d5ed29a353a5cf6b0fe469fc38c7e419d55334ac32fed22451fd0cce",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/ocr-session.js",
+          "startLine": 31,
+          "endLine": 31,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Only `finding.locations` are cross-checked against `completedFiles`. `normalizeRecord` also produces `evidence` locations (and for `architect` records these come straight from the OCR payload), so a recovered finding can cite evidence in a file that was never scanned, while still being accepted here. Validate evidence locations too, otherwise recovered findings can reference unscanned code.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:72023e96325ef919e1a266c6b986a8d618619e39ccf553757b81c614e5df9969",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "scripts/convert.sh",
+          "startLine": null,
+          "endLine": null,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Useless use of `cat` \u2014 redirect the file into `sed` directly to avoid the extra process per reference document (this runs once per `.md` for every platform target). Keep the `#` in the replacement \u2014 `sed -E 's@\\]\\(references/([a-z-]+)\\.md\\)@](#doublecheck-\\1)@g' \"$ref\"` \u2014 otherwise generated cross-links lose their fragment prefix.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:77a01a0777fa15608ca37097c47e47e13b2da5f861c2af68e4e3a724e74478da",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/index.js",
+          "startLine": 19,
+          "endLine": 19,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Consolidate the re-export blocks in this barrel file: merge the duplicated `./reporter.js` re-exports and re-export symbols from their owning modules, for example `generateDefaultReviewMd` from `review-config.js`, rather than through the intermediate `cli.js` passthrough. Fragmented re-exports are easy to let drift and can silently drop symbols.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:7c231b2a60cb039c7fc3debfe5d91760d92bfcef372207cb25b1e0a37de83788",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": ".github/workflows/ocr-contract.yml",
+          "startLine": 22,
+          "endLine": 22,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`ocr config set ...api_key fixture-placeholder` hardcodes a credential value in the workflow. It is clearly a non-secret fixture here (loopback mock), but it establishes a pattern that is easy to copy with a real key. Safer: pass it via an `env:` indirection sourced from a repository variable/secret, or at minimum add a comment stating explicitly that this is a throwaway fixture so future edits don't substitute a real key. Relatedly, no `concurrency` group is defined, so repeated `workflow_dispatch` triggers can run overlapping jobs that each provision global CLI config on their own runner; a `concurrency` group with `cancel-in-progress: true` would avoid redundant runs.",
+      "disposition": "rejected_as_reported",
+      "evidence": "The key is a deliberately non-secret fixture placeholder documented by the project; moving it to a secret would not improve credential safety."
+    },
+    {
+      "id": "architect:7ed68f413c6134aead81d83d932df0741448d9eb55804b7d0b4974c138b60523",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "vitest.config.js",
+          "startLine": 7,
+          "endLine": 7,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Setting `exclude` replaces Vitest's default exclusion list instead of extending it, so default entries such as `**/cypress/**`, `**/.{idea,cache,output,temp}/**` and `**/{vite,vitest,jest,babel,...}.config.*` are silently dropped. Any test-looking file inside those directories (e.g. generated/scratch files in `.cache`, or bundled deps) would then be collected and executed. Extend the defaults instead of redefining them.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:7fa6033da94add1794dea2a6f243cf9b9f181075adf96e8d1cb757fcf98b2083",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/doctor.js",
+          "startLine": 32,
+          "endLine": 32,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The supported OCR version is hardcoded in two places in this file (this regex and the error message below), and the exact output format (`open-code-review v1.13.3`) is assumed. Extract a single `SUPPORTED_OCR_VERSION` constant used by both the regex and the message so they cannot drift, and consider parsing the version token instead of matching a fixed prefix string.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:8068e627f7bb8bd3c2373348c9203320a80be4c032bda46c0ebd5a1ebd725e8e",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/output.js",
+          "startLine": 48,
+          "endLine": 48,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Cleanup in a `finally` block can itself throw (EACCES/EBUSY, or a child process still holding files on Windows) and then replace the original error, hiding the real failure. Wrap `fs.rmSync` in its own try/catch so cleanup is best-effort; use `maxRetries`/`retryDelay` where transient Windows locks are likely. Also avoid leaving staged temp directories inside the repository on abnormal termination.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:81dab4853c25a97952c5001d29eb035a6ac0f1a03388ca5e98f84cae3144b352",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "scripts/convert.sh",
+          "startLine": 73,
+          "endLine": 76,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`mkdir -p` + `cp -r` merges into an existing output directory, so a previous build leaves stale files behind (e.g. a reference manual that was deleted or renamed keeps being shipped in `dist/platforms/claude/`, and Cursor output keeps orphan `doublecheck-*.md`). Clean the target directory first so each build is reproducible. Note `convert_antigravity` has the same pattern.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:85744e6b117a13f7d4e46476a3e9fe63d6d8c1c19a8ca240c04afe5441ddeb98",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/engine-result.js",
+          "startLine": 34,
+          "endLine": 34,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`emptyEngine` is invoked twice for the same values just to clone the default provenance, which is duplicated work and easy to get out of sync if the defaults change. Build the base object once.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:860787654ad524b7946c844bc8476e61088c73da41d699c88ae59afbbbb09396",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/contracts.js",
+          "startLine": 108,
+          "endLine": 108,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The `verification` payload aliases the caller's objects (`severityAssessment`, `blockers`, `conditions`, `execution`, `validationPlan`, and the shallow `{ ...t }` trace items) instead of copying them. `id` is a hash of this serialized content, so any later mutation of the input payload silently desynchronizes `id` from the finding body; `validateCanonicalFinding()` recomputes the hash and the finding is then dropped with `INVALID_REPORT_FINDING`. Clone the record once (`structuredClone(record)`) and build `verification` from the clone. This also avoids persisting un-normalized casing (e.g. `severityAssessment.overall_severity` keeps `CRITICAL` while the normalized `severity` is `critical`).",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:87c0e6eb1a195ee8fc6906d9901045cd360043d7000944b7c44dc3e0ed0cf5f7",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": ".github/release-drafter.yml",
+          "startLine": 38,
+          "endLine": 38,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The tag `v$RESOLVED_VERSION` is hard-coded here even though the tag format is already defined by `tag-template: 'v$RESOLVED_VERSION'`. If the tag template is ever changed (e.g. dropping the `v` prefix), this compare link silently becomes broken. Prefer deriving the link from the configured tag so both stay in sync.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:89f793065e164f43b356005fc22b73d92b73cde4fd762a2f4ecfb50147c44686",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "scripts/convert.sh",
+          "startLine": 122,
+          "endLine": 122,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The shell truncates/creates `$out/REVIEW.md` before `cat` runs, so if the template is missing (e.g. the script is run from a packaged install without `src/`), the command fails after leaving an empty `REVIEW.md` artifact in the output directory. `cp` avoids the intermediate empty file, and an explicit existence check gives a clearer error.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:8a837d4a15920a213e73320f7a41d8de954a42f233324b58865af8e49c7bc0cd",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "scripts/smoke-consumer.mjs",
+          "startLine": 20,
+          "endLine": 20,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`targetRoot: fs.realpathSync(target)` is a hardcoded guess that can disagree with what the code under test computes. `runDualAudit` resolves the target with `resolveAuditTarget`, which walks up to the enclosing Git root; if `TMPDIR` happens to live inside a repository (common in CI/containers that point TMPDIR at the workspace), `targetRoot` will differ and `validateCustomEngine` will downgrade the engine to `partial` with `TARGET_MISMATCH`, making `runCli` return 2 and this smoke test fail for reasons unrelated to packaging. Derive the provenance from the resolved target instead:\n```js\nconst { targetRoot, revision } = api.resolveAuditTarget(target);\n```\nand use those values in `provenance` (or read `options.target` inside the injected runner).",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:9086e8a680b223092483efdeb62808fa9bbd82a58c4322e89023020ac09ca754",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/cli.js",
+          "startLine": 22,
+          "endLine": 22,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Multiple distinct validations (extra positionals, invalid `--format`, invalid `--mode`, `--mode architect` combined with `--findings`, `--force` without `--init-review`) are collapsed into one mixed `&&`/`||` chain that throws the same opaque message. Because `&&` binds tighter than `||`, the expression happens to be correct, but it is fragile and gives the user no hint about what is wrong. Split it into separate checks with specific messages (or extract a small `validateOptions` helper).",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:92dd9127b238a81554792d18d85435269aa766038b43ecefe7a13b0ea848fb56",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": ".gitignore",
+          "startLine": 9,
+          "endLine": 9,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Only the default report names are ignored. `src/output.js` stages writes in `fs.mkdtempSync(path.join(path.dirname(file), '.doublecheck-'))` directories and removes them only in a `finally` block \u2014 if the process is killed/SIGKILLed, `.doublecheck-*` staging dirs are left next to the report destination and can be committed by accident. Also `scripts/smoke-consumer.mjs` / `scripts/verify-ocr-contract.mjs` write `report.json` files, and `-o` allows arbitrary output paths, so a `report.json` pattern (or at least the staging dir prefix) would prevent leaking generated review artifacts/secrets into the repo.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:93f33435b3d337a1f1ce0ffd90c593873e3172bb7f722abd66eea211952437b3",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": ".github/workflows/ci.yml",
+          "startLine": 23,
+          "endLine": 23,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`npm run test:integration` (`vitest run tests/cli.integration.test.js`) already runs as part of the preceding `npm test -- --no-cache` (`vitest run` includes `**/*.test.js`; `vitest.config.js` only excludes `node_modules`, `dist`, `.git`). The integration suite therefore executes twice per matrix leg, roughly doubling the wall-clock of the job. Drop this step, or exclude `tests/cli.integration.test.js` from the default `test` script if it is meant to be a separate stage.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:9431302f31bf44c6d53ad371ca1eeb17a3b80a683dbd64f74bb56cd36aea4ba3",
+      "sourceSeverity": "high",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "tests/helpers/results.js",
+          "startLine": 3,
+          "endLine": 3,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Two problems on this return:\n1) `normalizeFindings` returns `{ findings, diagnostics, invalidRecordCount }`, but the diagnostics are discarded and `diagnostics: []` is hardcoded. Any invalid record passed via `records` is therefore silently dropped while the fixture still reports `status: 'complete'` and zero diagnostics, which can mask exactly the contract/validation behaviour the tests are meant to exercise (a real engine would downgrade to `partial`).\n2) The coverage lists are hardcoded to `'src/a.js'` and are unrelated to `records`/`root`, so the fixture can claim a reviewed file that is not present in `findings` (wrong root/different records), producing internally inconsistent engine results in tests.",
+      "disposition": "confirmed_fixed",
+      "reviewedSeverity": "low",
+      "evidence": "Invalid fixture records silently disappear. Fixture construction now throws; finding files supply synthetic coverage paths.",
+      "regression": "tests/helpers-results.test.js"
+    },
+    {
+      "id": "architect:9bc244dd937091dd34e10ed0edaba703abd96e45cd090ae99bd2404cbbbbd9f6",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "package.json",
+          "startLine": 52,
+          "endLine": 52,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Dev tooling version conflicts with the declared runtime support. `engines` advertises Node `>=20.0.0`, but the resolved `vitest@5.0.5` (see package-lock.json `node_modules/vitest`) declares `engines: { node: \"^22.12.0 || ^24.0.0 || >=26.0.0\" }`. A contributor on Node 20 (which the package explicitly supports and CI exercises for consumers) will install successfully but `npm test` will fail to run. Either raise `engines.node` to `>=22.12.0` (documenting that only the runtime needs Node 20) or pin a vitest major that still supports Node 20.",
+      "disposition": "rejected_as_reported",
+      "evidence": "README/CONTRIBUTING and CI explicitly separate Node20 consumer runtime from Node22.12+/24/26 development tooling. Runtime engines do not declare devDependency compatibility."
+    },
+    {
+      "id": "architect:9cc16f515db2ecdb8cc5b999bc5633b5c3e025b50a0a454eea03d220e95271ec",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": ".github/workflows/ci.yml",
+          "startLine": 25,
+          "endLine": 25,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`test -f REVIEW.md` only asserts file existence; an empty or truncated file passes. The remediation plan for this check expects integrity of the required sections (`## Focus Areas`, `## Severity Levels`, `## Invariants`, `## Ignored Paths`), so this step gives a false sense of coverage. Assert the required headings with grep, or reuse the packaged template comparison used elsewhere.",
+      "disposition": "rejected_as_reported",
+      "evidence": "A documentation-heading assertion is not behavioral verification. Root initialization behavior and package resources have meaningful tests; the plan did not require prose-string gating."
+    },
+    {
+      "id": "architect:9dfa896f9019aae7cfdea6254c5ddecd643e72b286d9f70fa57ea5466f94491f",
+      "sourceSeverity": "high",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/doctor.js",
+          "startLine": 21,
+          "endLine": 21,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Auto-selection ignores the OCR provider configuration: `selectBestModel` returns any preferred/installed model, but `resolveInferencePolicy` later requires that model to be listed in `custom_providers[provider].model`/`models`. On a machine with several installed models where only one is configured for OCR, doctor can pick an unconfigured model and the whole preflight fails with only the generic message. Consider resolving the policy per candidate (filtering candidates against the configured provider models) so the best *usable* model is chosen.",
+      "disposition": "confirmed_fixed",
+      "reviewedSeverity": "medium",
+      "evidence": "Auto-selection chose an installed model not configured for OCR. It now tries installed candidates under the named provider policy; explicit requests never fall back.",
+      "regression": "tests/doctor.test.js"
+    },
+    {
+      "id": "architect:a88233ec60e98825bde14edf1e73f89079c9b078651fdf3f0859afa63ba032bc",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/correlation.js",
+          "startLine": 22,
+          "endLine": 22,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`stableSerialize(a)` / `stableSerialize(b)` are recomputed for every comparison, so the whole correlation object (with a full recursive key-sort + JSON stringify) is serialized O(n log n) times instead of once per element. The same serialization is already computed when building the map key upstream. Precompute the sort key once per correlation and sort on that to make the comparator cheap and allocation-free.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:aa3165c7a276c4e89b43acd073e737ae5d6f3a46ef3353ddcc8c7bb9944bfb03",
+      "sourceSeverity": "high",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/ocr-session.js",
+          "startLine": 24,
+          "endLine": 24,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The ownership time window is only enforced when `startedAt`/`finishedAt` are finite numbers. If either is `undefined`/`NaN` (caller bug, wrong property name, missing option), both `time < startedAt - 1000` and `time > finishedAt` evaluate to `false`, so the window check is silently skipped and any session found in stderr that is not in `before` is accepted. In a fail-closed ownership validator the bounds must be validated explicitly.",
+      "disposition": "confirmed_fixed",
+      "reviewedSeverity": "medium",
+      "evidence": "Missing/nonfinite ownership bounds skipped time comparisons. Recovery now refuses them and reversed windows. Production callers already supplied Date.now values.",
+      "regression": "tests/ocr-session.test.js"
+    },
+    {
+      "id": "architect:aae858c6d2f7452047987783b21b3dcb40bec881644ab1f01fff5a7612cc527f",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/reporter.js",
+          "startLine": 89,
+          "endLine": 89,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Every other provenance field falls back to `'unknown'`, but `mode` is interpolated raw. Since `optionalStrings` allows `provenance.mode` to be `null`, the report renders `mode: null` for engines that do not report a mode. Apply the same fallback for consistency.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:acb5527092418cd0c8eb9aab827b8efc8dfe137ad4ed2284ea568a6dd73136ed",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/output.js",
+          "startLine": 4,
+          "endLine": 4,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "This function implements non-trivial security logic (path resolution deduplication, inode/dev comparison against protected inputs, hardlink detection, symlink rejection) that is not obvious from the code. A short comment explaining that these checks exist to prevent reports from overwriting/clobbering review inputs and to keep the write atomic would help future maintainers.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:b2c0f9f9a479d66952e2d1067752ed37869b341af7cfb79cb29745e41c0a89c9",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "scripts/helpers/mock-ollama.mjs",
+          "startLine": 20,
+          "endLine": 20,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Port/bind failures are silent on both sides. In `scripts/helpers/mock-ollama.mjs`, `port` comes straight from `argv[2]` (missing/invalid \u2192 `NaN` \u2192 `RangeError` on `listen()`), and the server has no `'error'` listener, so `EADDRINUSE` and other bind errors are unhandled. In `scripts/verify-ocr-contract.mjs`, the child is forked onto the fixed literal port 18765 with no `error`/`exit` handler, so any bind or spawn failure kills the child before `ready` and only surfaces 5s later as a generic \"Mock server startup timed out\" that hides the real cause. Validate the port, attach an `'error'` handler in the helper that reports the failure over IPC/stderr, and in the parent bind an ephemeral port (`0`, with the helper reporting the bound port) and race on `ready`/`error`/`exit` so failures fail fast with the actual reason.",
+      "disposition": "addressed_related_case",
+      "evidence": "Mock readiness now rejects error/exit and has a referenced bounded timer. Port remains fixed to match explicitly provisioned provider routing."
+    },
+    {
+      "id": "architect:b2dbc426ba4133c93f2b9d90fef8fd67c0f0c2281956686d3aaa113ee674f7b1",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "scripts/smoke-consumer.mjs",
+          "startLine": 15,
+          "endLine": 15,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "These spawn results discard `stdout`/`stderr` and `error`, so a failure (or a spawn failure where `status` is `null`) reports only `expected 0, got 1` with no clue about the real cause. Capture the result and include its output in the assertion message:\n```js\nconst help = spawnSync(process.execPath, [bin, '--help'], { encoding: 'utf8' });\nassert.equal(help.status, 0, help.stderr || help.error?.message);\n```",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:b33b3b7fff58599e9fa8ea7548785781f08f5dc80ae1bdbacb449bb70fc34fa5",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "tests/helpers/results.js",
+          "startLine": 2,
+          "endLine": 2,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Using `process.cwd()` as the default `targetRoot` makes this fixture non-hermetic: the same call produces different canonicalized paths depending on where the test process was launched, and tests that rely on the default (`completeEngine()` in orchestrator.test.js) will silently compare findings against a cwd-dependent root. Prefer an explicit sentinel root (e.g. a fixed `/repo`-style constant) or require callers to pass it, so expectations stay deterministic.",
+      "disposition": "rejected_as_reported",
+      "evidence": "This helper intentionally defaults to the current test repository root, matching resolveAuditTarget. A fixed sentinel root would break these integration fixtures."
+    },
+    {
+      "id": "architect:bd44a46477049d7dda128753efda1198241a032dd8e65e50e2f821acde49f5fe",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/cli.js",
+          "startLine": 24,
+          "endLine": 24,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The default Ollama endpoint `http://localhost:11434` and the `~/.opencodereview/config.json` path are duplicated across `src/cli.js`, `src/doctor.js`, and `src/inference-policy.js`. Extract shared constants such as `DEFAULT_OLLAMA_ENDPOINT` and `OCR_CONFIG_PATH` and reuse them so the defaults cannot drift between entry points.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:bd96fd0387b8d9fb1df8bd32001b27951410f92366bd4d300aa5c4b47b447e3d",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "scripts/verify-ocr-contract.mjs",
+          "startLine": 25,
+          "endLine": 25,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The startup timeout timer is `.unref()`'d and never cleared. Because the only other live handles are the child process handles, if the mock server exits before sending `ready` (bind failure, syntax error in the helper, SIGKILL) the unref'd timer no longer keeps the loop alive and Node terminates with the opaque \"Promise resolution is still pending but the event loop has already resolved\" (exit 13). The `finally` block then never runs either, so the temp directory leaks and no assertion message is printed. Drop `.unref()` (and clear the timer once the race settles) so the timeout actually rejects.",
+      "disposition": "addressed_related_case",
+      "evidence": "Startup wait now rejects on early child exit and clears a referenced timer/listeners, avoiding stranded top-level await."
+    },
+    {
+      "id": "architect:bdc6c13c9dddc630cec6be32cfe74a8412e5fb866b87f1bccb0348ad4778c8ec",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/engine-result.js",
+          "startLine": 13,
+          "endLine": 13,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "These consistency checks are O(n\u00b7m): each `some`/`includes` pair linearly scans `selected`/`failed`/`excluded` for every entry. For a real repository manifest with thousands of paths (15k+ entries across the four lists) this becomes tens/hundreds of millions of string comparisons on every validation call. Build `Set`s once and use `has()` (also fixes the same pattern in `isCompleteCoverage`).",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:becfd3cd4d0a71a996fa5c2c9aae85529bdb2210eff1361ff330eb8fb8c68ad5",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "scripts/smoke-consumer.mjs",
+          "startLine": 19,
+          "endLine": 19,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Importing `src/index.js` by internal path bypasses the published entry point, so a wrong/missing `main` in `package.json` (or a broken `exports` map) would not be caught even though real consumers rely on it. Prefer installing the tarball into `target` (e.g. `npm install <packed.filename> --ignore-scripts`) and resolving the entry through the package specifier / `main`, which also validates the `files` whitelist and `bin` wiring this script claims to cover.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:c15fea227d8c42aa46fa08af578e391083cf19ab0d6f0b525ee42dc9ff39323b",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/orchestrator.js",
+          "startLine": 92,
+          "endLine": 92,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "When the OCR output has no `llm` block (e.g. an array payload, or a provider that omits it), `provider`/`model` are both set to `null` and this check always fires: a successful run is downgraded to `partial` with a misleading `INFERENCE_IDENTITY_MISMATCH`. Only compare when the payload actually reports an identity (or treat a missing identity as `UNKNOWN`).",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:c4e24c7b524b5a38c7d2b69b18de6f5ea1a2437058a9f3545b94028886d6bf4c",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/ocr-session.js",
+          "startLine": 5,
+          "endLine": 5,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Magic numbers for the session CLI limits are duplicated per call and hardcoded: the 3s timeout is quite tight and the 16 MB `maxBuffer` may be exceeded when `show`/`comments` returns many comments for a large scan \u2014 the CLI then fails with ENOBUFS, the catch below returns `null`, and recovery is silently lost exactly for the large runs where it matters most. Extract named constants (and consider sizing the buffer for `comments` by the session's total comment count) so the limits are explicit and tunable in one place.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:c5ca5b55883260f9a6c2b38be38dd34ac231012e6feb99be2fb3c744b572a183",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/output.js",
+          "startLine": 20,
+          "endLine": 20,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Dead condition: `stat` comes from `fs.lstatSync`, which never follows symbolic links, so a symlink already makes `stat.isFile()` return false. The `|| stat.isSymbolicLink()` branch can never change the outcome and should be removed.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:c7ec1da7eca8193e05f415627eef57ebfb67752f51c26811817cba1f9f25191e",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": ".github/workflows/ocr-contract.yml",
+          "startLine": 12,
+          "endLine": 14,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Two issues here: (1) `node-version: '24.x'` is a floating range, so the runner image may silently pick up a new minor/patch and make this conformance job non-reproducible \u2014 pin an exact version (e.g. `24.9.0`) to match what `ocr 1.13.3` / your `engines` were validated against. (2) There is no npm cache configured, so the global install below re-downloads the package (and its dependencies) on every run. `setup-node`'s built-in `cache: 'npm'` needs a lockfile, which this repo doesn't have, so consider `actions/cache` keyed on the OCR version if run time matters.",
+      "disposition": "partially_rejected",
+      "evidence": "The claim that this repo lacks a lockfile is false (package-lock.json exists). Exact Node patch pinning/caching are optional CI policy changes, deferred."
+    },
+    {
+      "id": "architect:caef72f3432720e9b2e71749b3fdb29b25b2be054985fff370cd595f8fe8e3a6",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/orchestrator.js",
+          "startLine": 97,
+          "endLine": 97,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "This catch-all swallows every unexpected error and reports it as `INVALID_OCR_RESULT`, which is misleading: it also catches `ocr version` invocation failures (`resolveInferencePolicy` errors, missing binary), `parseCoverage` consistency errors and `TypeError`s from dereferencing a JSON `null` payload (`raw.status`/`raw.summary` here are not null-guarded, unlike `raw?.comments` above). Capture the error and map distinct diagnostics (e.g. OCR_UNAVAILABLE / CONFIG_ERROR / INVALID_OCR_RESULT) so the root cause is not lost.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:cbb225a7f4d28f72a24e54b9037b5507a3d454a27e91840feb9f940056fad142",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/doctor.js",
+          "startLine": 15,
+          "endLine": 15,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The loopback hostname allowlist (`localhost`, `127.0.0.1`, `[::1]`) is duplicated in `src/doctor.js` and `src/inference-policy.js`, so the two routing decisions can diverge. Export a single documented `isLoopbackHost()` predicate from `inference-policy.js` and reuse it in both places, noting any loopback forms the exact-match list intentionally rejects.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:d13df7ccb83fa19d5824f1be658e1429d0742a4ca7a5bc95a26494a65932d951",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "scripts/helpers/mock-ollama.mjs",
+          "startLine": 8,
+          "endLine": 8,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Two issues here: (1) `requests` is incremented above *before* validation, so the 30-request guard also counts malformed/unknown-model attempts, and (2) the magic limit `30` (and the `test-local` model name repeated in several places) is unexplained. Extract named constants so the contract's intent is clear and the counter semantics are explicit. Note also that this check is the only place the cap is enforced and the response carries no body, so a failing run gives no hint about which limit was hit.",
+      "disposition": "addressed_related_case",
+      "evidence": "Malformed and wrong-model requests no longer consume valid request budget; maxRequests names the bounded synthetic allowance."
+    },
+    {
+      "id": "architect:d3e6c48f9f12722e44fcfa43fd591478c54e450d4886e2253e6aa20818c63762",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "bin/doublecheck.js",
+          "startLine": null,
+          "endLine": null,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`err` is bound but never used, so the actual failure reason is discarded and the operator only sees a generic message. This makes diagnosing unexpected failures (e.g. a thrown error escaping `runCli`, a broken import/runtime error) very hard, and it is also dead code. Include the error details (or at least its message/stack) in the output.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:d7e79b12cf948e1dd1d41b2510ccc0854eea2ffcf19beddb899e8c5a60ad1aa8",
+      "sourceSeverity": "high",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "scripts/convert.sh",
+          "startLine": 49,
+          "endLine": 50,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Because `nullglob` is enabled, if `skills/doublecheck/references/` is missing or contains no `.md` files, this loop silently iterates zero times. The script then exits 0 and reports \"Done\", producing AGENTS.md/.windsurfrules with no reference manuals and a Cursor `rules/` directory that may contain dangling `./doublecheck-*.md` links. Validate the source tree up front (or fail fast here) instead of emitting an incomplete distribution successfully.",
+      "disposition": "confirmed_fixed",
+      "reviewedSeverity": "medium",
+      "evidence": "Missing/empty reference sources generated incomplete exports with success. Preflight now runs before writing destinations; review-md remains independent.",
+      "regression": "tests/convert.test.js"
+    },
+    {
+      "id": "architect:d8196403de71606a378459c617dc8e72e328d14954eddcc4ead620ade80c0530",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "scripts/smoke-consumer.mjs",
+          "startLine": 10,
+          "endLine": 10,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`execFileSync('npm', ...)` assumes a bare `npm` executable and no timeout. Two problems: (1) on Windows npm is `npm.cmd`, which `execFileSync` cannot spawn without `shell: true`, so the script fails outright there (the same applies to the `tar` call below, which is not guaranteed to exist); (2) a hung `npm pack` (registry/cache lock) blocks CI forever because no `timeout` is set. Resolve the binary per platform and bound the call, e.g.:\n```js\nconst npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';\nconst packed = JSON.parse(execFileSync(npm, ['pack', '--json', '--ignore-scripts', '--pack-destination', tmp, '--cache', path.join(tmp, 'cache')], { cwd: repo, encoding: 'utf8', timeout: 120_000 }))[0];\n```",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:db3f66fea9ebbfbf09ab42faee39473108f942ea833ad666bf84070b117f98bf",
+      "sourceSeverity": "high",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/orchestrator.js",
+          "startLine": 60,
+          "endLine": 62,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Session recovery is only attempted when `output.json` does not exist. On a timeout/failure the CLI very often leaves a truncated/partially-written output file, in which case `readJson(outputFile)` throws, control jumps to the outer `catch`, and the result is reported as `INVALID_OCR_RESULT`/`failed` without ever trying `recoverScanSession` \u2014 exactly the scenario recovery exists for. Consider also recovering when the output cannot be parsed or when `processFailed` is set but the payload is incomplete.",
+      "disposition": "confirmed_fixed",
+      "reviewedSeverity": "medium",
+      "evidence": "Failed scans with truncated or malformed output skipped saved-session recovery. Recovery now applies with owned identity, retaining an explicitly failed terminal status.",
+      "regression": "tests/orchestrator.test.js"
+    },
+    {
+      "id": "architect:de3b1f6c8b8eeb6dde5df7dbb6a34a5a5be2530159f1009c616571ddb45fc80a",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "scripts/verify-ocr-contract.mjs",
+          "startLine": 30,
+          "endLine": 30,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Relying on a fixed 50 ms sleep to drain IPC notifications makes the `requests > 0` assertion timing-dependent and flaky on loaded CI runners (and wastes 50 ms on every run). Prefer deterministically waiting for an observable condition, e.g. polling until `requests > 0` or resolving a promise from the `'request'` message handler, with a bounded timeout.",
+      "disposition": "addressed_related_case",
+      "evidence": "Native contract waits for an actual request IPC notification instead of a fixed50ms sleep."
+    },
+    {
+      "id": "architect:de5902df0fea844a30ce978ef392d13a9528273120de068a66fca19e35d5ef82",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "vitest.config.js",
+          "startLine": 6,
+          "endLine": 6,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`globals: true` exposes `describe/it/expect` globally, but every test file in `tests/` already imports them explicitly from `vitest` (verified via search), so this flag is unused and only pollutes the global scope / requires extra ambient type declarations if TS is added later. Consider removing it, or drop the explicit imports if globals are actually intended.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:e028d3ca8f888040509cbe1ed11c3f6b3b4258bcf68db0e6d3cc3f09a331dcae",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/orchestrator.js",
+          "startLine": 26,
+          "endLine": 26,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`statSync` + `readFileSync` reads the whole file twice and is a TOCTOU pattern; `JSON.parse(fs.readFileSync(file, 'utf8'))` inside one `try` (catching ENOENT) or checking `stats.size` from a single `open`/`fstat` is simpler. Minor, but the size check can be bypassed if the file grows between the two calls.",
+      "disposition": "partially_rejected",
+      "evidence": "statSync reads metadata, not the entire file. The separate concurrent-file-growth concern is not reproduced and remains pending."
+    },
+    {
+      "id": "architect:e2038d65a748509454488c2616d9201ed30d917bf622fe55b4d8b9e6530e2967",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/contracts.js",
+          "startLine": 119,
+          "endLine": 119,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Two robustness gaps in this exported API: (1) destructuring the third argument throws a raw `TypeError` when a caller passes `null` (e.g. `normalizeFindings(source, payload, null)`), bypassing the documented `FindingValidationError` contract; (2) the guard only checks `typeof targetRoot === 'string'`, so an empty/whitespace root is silently resolved to `process.cwd()`, changing every canonical path identity instead of failing. Normalize `options` with `?? {}` and reject blank roots.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:e4701741de2c2745d4cd3e431bfb955a5dd57d5bfbfcdf19106955b1e324f6fe",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/review-config.js",
+          "startLine": 5,
+          "endLine": 5,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`targetDir` is not validated: passing `undefined`/`null` or a non-existent path throws a bare `TypeError`/`ENOENT` from `fs.statSync` and a non-directory path is rejected only after the (comparatively expensive) filesystem call. Add an explicit input check with a clear message so callers get a deterministic failure instead of a low-level error.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:e7acd56a0c5588e474cc0414cee022557140f927b7fc862fa1ba1835ab616d23",
+      "sourceSeverity": "high",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "scripts/helpers/mock-ollama.mjs",
+          "startLine": 6,
+          "endLine": 7,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Both the request body iteration and `JSON.parse` can throw: a client aborting mid-upload rejects the `for await` loop, and a malformed/empty body throws a `SyntaxError`. Because the handler is `async`, the thrown error becomes an unhandled promise rejection inside `http.createServer`, which on Node >= 15 terminates the mock process. The parent (`verify-ocr-contract.mjs`) would then just see a dead child / hanging connection instead of a clear 400. Wrap the body read + parse in try/catch (or `server.on('clientError')`) and answer 400.",
+      "disposition": "confirmed_fixed",
+      "reviewedSeverity": "medium",
+      "evidence": "Malformed JSON crashed the real mock child with exit1 before the fix. Bounded handler returns400, catches aborted uploads, and remains usable; startup IPC waits handle exit/error/timeouts.",
+      "regression": "tests/mock-contract.test.js"
+    },
+    {
+      "id": "architect:ea4ec37183ddcaac8485ee67d6e2f13ff60792d74f0621c8f24bd2c787b924f9",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/reporter.js",
+          "startLine": 18,
+          "endLine": 18,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`reportEngine` validates provenance/coverage/execution but returns `{ ...engine, ... }`, so the engine's own `findings` array (and any other caller-supplied keys) is copied verbatim into `json.engines` without ever going through `validateCanonicalFinding`. A caller that only supplies `engines` therefore publishes unvalidated/malformed records in the report JSON while the top-level `findings` list stays empty, and `invalidInput` is never raised. Either validate/derive `engine.findings` here (merging them into the top-level findings) or drop them from the returned object so the report only exposes canonical records.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:ef678dbd93a5030739ef12b819a93b49c4330833cf2360755138b7fa81b9ec63",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/reporter.js",
+          "startLine": 61,
+          "endLine": 61,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`path.resolve(results.targetPath || '.')` is recomputed for every finding (and again for the legacy branch and each engine), even though it is loop-invariant. Hoist it once before the loops to avoid repeated filesystem-path resolution and to make the target root consistent for all records.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:f16d0627ce9e9513c4ce2d5810ea981d0e604f5ebac332fa3394dcd5a1a0be1c",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "scripts/helpers/mock-ollama.mjs",
+          "startLine": 21,
+          "endLine": 21,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "`server.close()` only invokes its callback once all connections are gone; with an open keep-alive SSE/HTTP connection the callback may never run and the child stays alive after the parent exits (orphan process). Also nothing handles `SIGTERM`. Close idle/all connections or add a hard-exit fallback.",
+      "disposition": "addressed_related_case",
+      "evidence": "Disconnect now closes all HTTP connections before server.close so keep-alive connections cannot strand shutdown."
+    },
+    {
+      "id": "architect:f2ae2f0c3c4288ef98d3a46f3a2ec8ff60656ab1c5391392d04ef219c57edb2e",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/correlation.js",
+          "startLine": 3,
+          "endLine": 3,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Use a deterministic code-unit comparison instead of `localeCompare` for canonical ordering. `localeCompare` depends on the runtime locale/ICU data, so the same findings can be emitted in a different order, and where the order feeds a content hash they can receive different ids, across environments.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:f2b0ccc751064ac8780e9bd7182c3c16033c7c96b0964a2713f697173e3405a5",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "LICENSE",
+          "startLine": 176,
+          "endLine": 178,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "The canonical Apache License 2.0 text ends with `END OF TERMS AND CONDITIONS` followed by an `APPENDIX: How to apply the Apache License to your work.` section header. Here the appendix heading is absent and the project copyright/boilerplate is appended directly, which makes the file deviate from the standard, verbatim Apache-2.0 text. This can matter for automated license detection (e.g. license scanners/SPDX matching) and for downstream compliance reviews. Recommend restoring the `APPENDIX` heading before the copyright line so the file matches the official text exactly.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    },
+    {
+      "id": "architect:f880d7bb8b23a6dcb12b8bd53d6bdb896f95254ee4502b43f38a911e67454bc1",
+      "sourceSeverity": "medium",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "src/engine-result.js",
+          "startLine": 33,
+          "endLine": 33,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "Unlike `normalizeFindings` (which caps the payload at 10,000 records and each text field at 1 MB before hashing), this path has no size limits: `raw.findings.length` is unbounded and `validateCanonicalFinding` accepts arbitrarily long `title`/`description`/`remediation` strings. A misbehaving or hostile custom runner can therefore exhaust memory and produce an enormous report. Add a record-count cap and length caps on the free-text fields.",
+      "disposition": "needs_validation",
+      "evidence": "Inventoried and source-read, but no independent behavioral reproduction in this pass. Not confirmed, fixed, or treated as a blocker."
+    },
+    {
+      "id": "architect:f92a2735a781bcefaca8fd77268661e3dc54a6b7ec4996080c110a95ce127e4d",
+      "sourceSeverity": "low",
+      "sourceVerdict": "needs_validation",
+      "locations": [
+        {
+          "file": "package.json",
+          "startLine": 9,
+          "endLine": 9,
+          "kind": "annotation"
+        }
+      ],
+      "claim": "There is no `exports` map. Without it, all internal modules (`src/cli.js`, `src/orchestrator.js`, `src/contracts.js`, \u2026) remain publicly importable as deep subpaths, so any internal refactor becomes a breaking change for consumers. Since `src/index.js` is the intended public API and the CLI is exposed through `bin`, add an explicit `exports` map to encapsulate internals.",
+      "disposition": "deferred",
+      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+    }
+  ]
+}

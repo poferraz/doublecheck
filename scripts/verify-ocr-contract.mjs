@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, fork } from 'node:child_process';
-import { once } from 'node:events';
+import { waitForMockMessage } from './helpers/mock-process.mjs';
 import { runCli } from '../src/cli.js';
 import { runDualAudit } from '../src/orchestrator.js';
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'doublecheck-native-'));
@@ -20,14 +20,16 @@ try {
     // This script never writes the operator's OCR configuration.
     let requests = 0;
     server = fork(new URL('./helpers/mock-ollama.mjs', import.meta.url), ['18765'], { stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
-    const ready = once(server, 'message');
+    const ready = waitForMockMessage(server, 'ready');
+    const requestObserved = waitForMockMessage(server, 'request', 45000);
+    requestObserved.catch(() => {}); // Keep an early child failure handled until it is awaited below.
     server.on('message', event => { if (event.type === 'request') requests++; });
-    await Promise.race([ready, new Promise((_, reject) => setTimeout(() => reject(Error('Mock server startup timed out')), 5000).unref())]);
+    await ready;
     const code = await runCli([tmp, '--mode', 'architect', '--model', 'test-local', '--ocr-provider', 'doublecheck-contract', '--ollama', 'http://127.0.0.1:18765', '-f', 'json', '-o', path.join(tmp, 'report.json')], {
       runDualAudit: (target, options) => runDualAudit(target, { ...options, timeout: 30000, concurrency: 1 })
     });
-    // Drain IPC notifications queued during execFileSync's synchronous scan.
-    await new Promise(resolve => setTimeout(resolve, 50));
+    // Await an actual request notification queued during the synchronous scan.
+    await requestObserved;
     const report = JSON.parse(fs.readFileSync(path.join(tmp, 'report.json')));
     const engine = report.engines.find(e => e.source === 'architect');
     assert.ok(requests > 0, 'OCR did not reach the expected mock model server');

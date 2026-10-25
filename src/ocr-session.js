@@ -14,6 +14,7 @@ export function snapshotSessionIds(runner, root) {
 }
 export function recoverScanSession({ runner, target, model, before, stderr, startedAt, finishedAt }) {
   try {
+    if (!Number.isFinite(startedAt) || !Number.isFinite(finishedAt) || finishedAt < startedAt) return null;
     // Only the ID emitted by this process can establish ownership. Never guess
     // from the most recent session: another scan may share the same repo/model.
     const markers = [...String(stderr || '').matchAll(new RegExp(`^\\[ocr\\] Session: (${uuid}) \\(retry with: --resume (${uuid})\\)\\r?$`, 'gm'))];

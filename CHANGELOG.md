@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Auto-select an installed model compatible with the selected provider; accept the default `:latest` alias while retaining explicit model and cloud-consent boundaries.
+- Recover owned saved sessions after failed scans leave truncated/malformed output; reject invalid recovery time windows.
+- Refuse invalid complete-engine fixtures and incomplete agent exports; harden mock inference requests and IPC startup waits.
+
+
 - Added a configurable 20-minute overall native scan deadline, timeout diagnostics, and separately labeled requested inference/execution context.
 - Added conservative recovery of newly created OCR sessions identified by the failed process, retaining partial/unknown coverage.
 - Fixed inherited-property bypasses in pinned-schema validation and diagnosed malformed canonical report inputs while preserving valid siblings.

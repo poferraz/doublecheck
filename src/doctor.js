@@ -18,10 +18,21 @@ export async function checkEnvironment(options = {}) {
     const data = await response.json();
     if (!Array.isArray(data.models)) throw Error('Ollama returned an invalid model list.');
     const names = data.models.map(m => m?.name).filter(n => typeof n === 'string' && !/embed|bge/i.test(n));
-    activeModel = options.model ? names.find(n => n === options.model || n === `${options.model}:latest`) || null : selectBestModel(data.models);
-    if (!activeModel) throw Error('Requested usable model is not installed.');
-    ollamaReady = true;
-    inference = await resolveInferencePolicy({ ...options, model: activeModel }, { readOcrConfig: options.readOcrConfig });
+    const requested = names.find(n => n === options.model || n === `${options.model}:latest`);
+    const candidates = options.model ? [requested].filter(Boolean) : [...new Set(names)];
+    ollamaReady = names.length > 0;
+    while (candidates.length) {
+      const candidate = options.model ? candidates[0] : selectBestModel(candidates);
+      try {
+        inference = await resolveInferencePolicy({ ...options, model: candidate }, { readOcrConfig: options.readOcrConfig });
+        activeModel = candidate;
+        break;
+      } catch (error) {
+        if (options.model) throw error;
+        candidates.splice(candidates.indexOf(candidate), 1);
+      }
+    }
+    if (!inference) throw Error('No configured usable model is installed.');
     warnings.push(...inference.warnings);
   } catch (error) {
     // Errors produced by dependencies may contain credentials or response content.

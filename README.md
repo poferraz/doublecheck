@@ -60,7 +60,7 @@ JSON uses `schemaVersion: "doublecheck/report/v2"` and contains `status`, `engin
 
 Native execution metadata distinguishes process success, timeout, and failure from review coverage. Requested provider/model/endpoint are retained separately from actual reported identity, including when output is missing. Timeouts emit `OCR_PROCESS_TIMEOUT` without exposing raw external error text.
 
-If OCR fails before writing its output, Doublecheck attempts saved-session recovery only when that process emitted an exact session marker. The ID must be absent from the pre-run inventory and its saved metadata must match this repo, model, and run time. A missing/conflicting marker, unavailable inventory, mismatching metadata, or malformed comments prevents recovery. A hard kill may therefore still require manual recovery with `ocr session` commands. Recovered comments remain candidates with unknown coverage and a partial result; recovery never converts a failed process into a clean review.
+If OCR fails before writing usable output (missing, truncated, or malformed JSON), Doublecheck attempts saved-session recovery only when that process emitted an exact session marker. The ID must be absent from the pre-run inventory and its saved metadata must match this repo, model, and run time. A missing/conflicting marker, unavailable inventory, invalid time window, mismatching metadata, or malformed comments prevents recovery. Corrupt-output recovery requires a failed native process and preserves any explicitly failed terminal status. A hard kill may therefore still require manual recovery with `ocr session` commands. Recovered comments remain candidates with unknown coverage and a partial result; recovery never converts a failed process into a clean review.
 
 Native OCR 1.13.3 full-file scans currently return **2** because coverage is unknown. This is expected and must not be swallowed in CI. A complete clean review means coverage completed; it is not a security certification.
 
@@ -72,7 +72,7 @@ For `--format both`, `-o review.json`, `-o review.md`, and `-o review` produce `
 | --- | --- |
 | `[path]` | Existing target file/directory; default `.`. Use `--` before dash-prefixed targets. |
 | `--mode dual\|architect` | Required lenses; default `dual`. Architect mode cannot import adversary findings. |
-| `-m, --model name` | Installed model; otherwise choose from available non-embedding models. |
+| `-m, --model name` | Installed model; otherwise choose an available non-embedding model permitted by the named provider. Explicit model requests never fall back. |
 | `--ollama url` | Base endpoint; default `http://localhost:11434`. |
 | `--ocr-provider name` | Matching configured custom provider; default `ollama`. |
 | `--allow-remote` | Opt in to remote endpoints/cloud-tagged models. |

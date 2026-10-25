@@ -46,6 +46,19 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Validate the full skill source before touching any destination.
+if [[ "$PLATFORM" != "review-md" ]]; then
+    [[ -r "$SKILL_DIR/SKILL.md" ]] || { echo "Error: skill source is missing or unreadable." >&2; exit 1; }
+    reference_files=("$SKILL_DIR"/references/*.md)
+    [[ ${#reference_files[@]} -gt 0 ]] || { echo "Error: reference manuals are missing." >&2; exit 1; }
+    for source in "$SKILL_DIR/SKILL.md" "${reference_files[@]}"; do
+        [[ -r "$source" ]] || { echo "Error: reference source is unreadable." >&2; exit 1; }
+        while IFS= read -r reference; do
+            [[ -r "$SKILL_DIR/$reference" ]] || { echo "Error: referenced manual is missing: $reference" >&2; exit 1; }
+        done < <(grep -oE 'references/[A-Za-z0-9_-]+\.md' "$source" || true)
+    done
+fi
+
 stream_references() {
     for ref in "$SKILL_DIR"/references/*.md; do
         printf '<a id="doublecheck-%s"></a>\n\n' "$(basename "$ref" .md)"

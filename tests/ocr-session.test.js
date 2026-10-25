@@ -39,3 +39,7 @@ it('fails closed when the pre-run session inventory is unavailable', () => {
   expect(snapshotSessionIds(() => { throw Error('secret'); }, root)).toBeNull();
   expect(snapshotSessionIds(() => JSON.stringify([{ session_id: id }]), root)).toEqual(new Set([id]));
 });
+it.each([{}, { startedAt: undefined }, { startedAt: NaN }, { finishedAt: undefined }, { finishedAt: Infinity }, { startedAt: startedAt + 20000 }])('rejects invalid ownership bounds %j', options => {
+  if (!Object.keys(options).length) options = { startedAt: undefined, finishedAt: undefined };
+  expect(recover(options)).toBeNull();
+});

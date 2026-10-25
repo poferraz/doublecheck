@@ -119,3 +119,21 @@ it('automatically recovers owned saved comments after a timeout without certifyi
   expect(result.diagnostics.some(d => d.code === 'OCR_SESSION_RECOVERED')).toBe(true);
   expect(JSON.stringify(result)).not.toContain('secret-marker');
 });
+it.each(['{', 'null', '{"comments":{}}', '{"status":"failed","comments":null}'])('recovers owned session comments when failed OCR leaves malformed output %s', async payload => {
+  const id = '12345678-1234-1234-1234-123456789abc'; const startTime = new Date().toISOString();
+  const result = await defaultAlibabaRunner('.', { execFileSync: (_cmd, args) => {
+    if (args[0] === 'version') return 'open-code-review v1.13.3';
+    if (args[0] === 'scan') {
+      fs.writeFileSync(args[args.indexOf('-o') + 1], payload);
+      throw Object.assign(Error('secret-marker'), { code: 'ETIMEDOUT', stderr: `[ocr] Session: ${id} (retry with: --resume ${id})\n` });
+    }
+    if (args[1] === 'list') return '[]';
+    if (args[1] === 'show') return JSON.stringify({ summary: { session_id: id, model: 'test-local', review_mode: 'full_scan', repo_dir: resolveAuditTarget('.').targetRoot, start_time: startTime, completed_files: 1, total_comments: 1 }, items: [{ type: 'done', file_path: 'src/a.js' }] });
+    return JSON.stringify([comment]);
+  } });
+  expect(result.findings).toHaveLength(1);
+  expect(result.status).toBe(payload.includes('"failed"') ? 'failed' : 'partial');
+  expect(result.coverage.origin).toBe('unknown');
+  expect(result.diagnostics.some(d => d.code === 'OCR_SESSION_RECOVERED')).toBe(true);
+  expect(JSON.stringify(result)).not.toContain('secret-marker');
+});

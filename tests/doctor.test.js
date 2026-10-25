@@ -21,3 +21,19 @@ it('connection failures and cloud model refusal never report ready', async () =>
   expect((await ready({ fetch: async () => { throw Error('secret-marker'); } })).ok).toBe(false);
   expect((await ready({ model: 'qwen:cloud', fetch: async () => ({ ok: true, json: async () => ({ models: [{ name: 'qwen:cloud' }] }) }) })).ok).toBe(false);
 });
+it('auto-selects the best installed model permitted by the named provider', async () => {
+  const available = ['qwen2.5-coder:32b', model];
+  const result = await ready({ model: '', fetch: async () => ({ ok: true, json: async () => ({ models: available.map(name => ({ name })) }) }) });
+  expect(result.ok).toBe(true); expect(result.activeModel).toBe(model);
+});
+it('never substitutes a configured model for an explicit unusable request', async () => {
+  const result = await ready({ model: 'qwen2.5-coder:32b', fetch: async () => ({ ok: true, json: async () => ({ models: [{ name: model }, { name: 'qwen2.5-coder:32b' }] }) }) });
+  expect(result.ok).toBe(false);
+});
+it('auto-selection respects cloud consent and skips unusable cloud candidates', async () => {
+  const data = { custom_providers: { ollama: { ...config().custom_providers.ollama, models: ['qwen:cloud'] } } };
+  const result = await ready({ model: '', readOcrConfig: () => data, fetch: async () => ({ ok: true, json: async () => ({ models: [{ name: 'qwen:cloud' }, { name: model }] }) }) });
+  expect(result.ok).toBe(true); expect(result.activeModel).toBe(model);
+  const cloudOnly = await ready({ model: '', readOcrConfig: () => data, fetch: async () => ({ ok: true, json: async () => ({ models: [{ name: 'qwen:cloud' }] }) }) });
+  expect(cloudOnly.ok).toBe(false);
+});

@@ -57,20 +57,28 @@ export async function defaultAlibabaRunner(targetPath, options = {}) {
       result.diagnostics.push(diagnostic(timedOut ? 'OCR_PROCESS_TIMEOUT' : 'OCR_PROCESS_FAILED', 'architect'));
     }
     const finishedAt = Date.now(); result.execution.elapsedMs = finishedAt - startedAt;
-    if (!fs.existsSync(outputFile)) {
-      result.diagnostics.push(diagnostic('MISSING_OCR_OUTPUT', 'architect'));
+    const recoverSaved = (preserveFailure = false) => {
       const recovered = recoverScanSession({ runner, target, model: inference.model, before, stderr: failureStderr, startedAt, finishedAt });
       if (recovered) {
-        result.findings = recovered.findings; result.status = 'partial';
+        result.findings = recovered.findings; result.status = preserveFailure ? 'failed' : 'partial';
         Object.assign(result.execution, { sessionId: recovered.sessionId, completedFiles: recovered.completedFiles });
         result.provenance.model = inference.model;
         result.diagnostics.push(diagnostic('OCR_SESSION_RECOVERED', 'architect'), diagnostic('UNKNOWN_NATIVE_COVERAGE', 'architect'));
       }
       return result;
+    };
+    if (!fs.existsSync(outputFile)) {
+      result.diagnostics.push(diagnostic('MISSING_OCR_OUTPUT', 'architect'));
+      return recoverSaved();
     }
-    const raw = readJson(outputFile);
-    const payload = Array.isArray(raw) ? raw : raw?.comments;
-    const normalized = normalizeFindings('architect', payload, target);
+    let raw; let normalized;
+    try {
+      raw = readJson(outputFile);
+      normalized = normalizeFindings('architect', Array.isArray(raw) ? raw : raw?.comments, target);
+    } catch {
+      result.diagnostics.push(diagnostic('INVALID_OCR_RESULT', 'architect'));
+      return processFailed ? recoverSaved(raw?.status === 'failed' || !!raw?.manifest?.run_failure) : result;
+    }
     result.findings = normalized.findings;
     result.diagnostics.push(...normalized.diagnostics);
     result.status = ['complete', 'partial', 'failed', 'skipped'].includes(raw.status) ? raw.status : 'partial';

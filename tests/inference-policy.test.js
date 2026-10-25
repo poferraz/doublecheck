@@ -16,3 +16,7 @@ it('rejects ambient cloud providers and credential commands without exposing the
     expect(error).toBeInstanceOf(Error); expect(error.message).not.toContain('secret-marker');
   }
 });
+it('accepts only the exact default latest alias, not other model variants', async () => {
+  expect(await resolve({ model: 'qwen' })).toMatchObject({ model: 'qwen' });
+  await expect(resolve({ model: 'qwen:other' })).rejects.toThrow();
+});

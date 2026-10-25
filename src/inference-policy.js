@@ -24,6 +24,7 @@ export async function resolveInferencePolicy(options = {}, dependencies = {}) {
   if (!entry || entry.protocol !== 'openai' || typeof entry.url !== 'string' || normalizeEndpoint(entry.url) !== endpoint || !entry.url.replace(/\/+$/, '').endsWith('/v1')) throw Error('Selected custom OCR provider must match the requested Ollama endpoint and use OpenAI protocol.');
   if (entry.api_key_cmd || typeof entry.api_key !== 'string' || !entry.api_key.trim()) throw Error('Use a static placeholder credential for the selected Ollama provider; credential commands are not supported.');
   const models = [entry.model, ...(Array.isArray(entry.models) ? entry.models : [])];
-  if (!models.includes(options.model)) throw Error('Selected model must be configured for the named OCR provider.');
+  const modelIdentity = name => name.replace(/:latest$/, '');
+  if (!models.some(name => typeof name === 'string' && modelIdentity(name) === modelIdentity(options.model))) throw Error('Selected model must be configured for the named OCR provider.');
   return { provider, endpoint, model: options.model, route, locality: 'unverified', warnings: ['Endpoint routing is verified; model locality and daemon forwarding are not verified.'] };
 }
