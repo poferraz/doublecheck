@@ -15,3 +15,4 @@ export {
   printHelp,
   generateDefaultReviewMd
 } from './cli.js';
+export { normalizeFindings, canonicalizeFindingPath, FindingValidationError } from './contracts.js';
