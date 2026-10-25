@@ -64,7 +64,14 @@ function normalizeRecord(source, record, root) {
   if (!object(record)) fail();
   const explicitVerdict = record.verdict;
   if (explicitVerdict != null && !verdicts.has(explicitVerdict)) fail();
-  if (source === 'adversary' && explicitVerdict != null && !matchesSchema(record, cloudflareSchema.items)) fail();
+  if (source === 'adversary' && explicitVerdict != null) {
+    const candidate = structuredClone(record);
+    if (object(candidate.severity)) {
+      for (const key of ['overall_severity']) if (typeof candidate.severity[key] === 'string') candidate.severity[key] = candidate.severity[key].toLowerCase();
+      for (const key of ['likelihood', 'impact']) if (typeof candidate.severity[key]?.score === 'string') candidate.severity[key].score = candidate.severity[key].score.toLowerCase();
+    }
+    if (!matchesSchema(candidate, cloudflareSchema.items)) fail();
+  }
   // OCR outputs are candidates. Confirmation is accepted only in the validated adversary schema.
   const verdict = source === 'architect' ? 'needs_validation' : explicitVerdict || 'needs_validation';
   const rawSeverity = object(record.severity) ? record.severity.overall_severity : record.severity;
