@@ -31,3 +31,12 @@ it('initializes without inference', async () => withTempDir(async tmp => {
   expect(await runCli([tmp, '--init-review'])).toBe(0);
   expect(fs.existsSync(path.join(tmp, 'REVIEW.md'))).toBe(true);
 }));
+it('reports cannot replace source targets or imported finding inputs', async () => withTempDir(async tmp => {
+  const source = path.join(tmp, 'fixture.js'); fs.writeFileSync(source, 'source content');
+  const findings = path.join(tmp, 'findings.json'); fs.writeFileSync(findings, '[]');
+  const doctor = vi.fn();
+  expect(await runCli([source, '-o', source], { checkEnvironment: doctor })).toBe(2);
+  expect(await runCli([tmp, '--findings', findings, '-f', 'both', '-o', findings], { checkEnvironment: doctor })).toBe(2);
+  expect(doctor).not.toHaveBeenCalled();
+  expect(fs.readFileSync(source, 'utf8')).toBe('source content'); expect(fs.readFileSync(findings, 'utf8')).toBe('[]');
+}));

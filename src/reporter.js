@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { isCompleteCoverage } from './engine-result.js';
 import { normalizeFindings, diagnostic } from './contracts.js';
 import { correlateFindings, deduplicateFindings } from './correlation.js';
 export function normalizePath(p = '') { return path.posix.normalize(p.replace(/\\/g, '/')); }
@@ -10,6 +11,11 @@ function renderFinding(f) {
   for (const l of f.locations) out += `- Location: ${inline(l.file)}:${l.startLine ?? 'unknown'}${l.endLine && l.endLine !== l.startLine ? `–${l.endLine}` : ''}\n`;
   out += `\n${escape(f.description)}\n\n`;
   for (const e of f.evidence) out += `- Evidence: ${inline(e.file)}:${e.startLine ?? 'unknown'} — ${escape(e.description)}\n`;
+  if (f.verification) {
+    if (f.verification.rejectionReason) out += `Rejection reason: ${escape(f.verification.rejectionReason)}\n\n`;
+    for (const blocker of f.verification.blockers || []) out += `- Validation blocker: ${escape(blocker)}\n`;
+    for (const [where, instructions] of Object.entries(f.verification.validationPlan || {})) out += `- Validation plan (${inline(where)}): ${escape(instructions)}\n`;
+  }
   if (f.remediation) {
     const runs = f.remediation.match(/`+/g) || [];
     const fence = '`'.repeat(Math.max(4, ...runs.map(x => x.length + 1)));
@@ -43,7 +49,12 @@ export function synthesizeReport(results = {}) {
   const unresolved = findings.filter(f => f.verdict === 'needs_validation');
   const rejected = findings.filter(f => f.verdict === 'rejected');
   const correlations = correlateFindings(findings.filter(f => f.source === 'adversary'), findings.filter(f => f.source === 'architect'));
-  const status = ['complete', 'partial', 'failed'].includes(results.status) ? results.status : 'partial';
+  const requiredSources = results.reviewMode === 'architect' ? ['architect'] : ['adversary', 'architect'];
+  const hasCompleteEvidence = requiredSources.every(source => {
+    const engines = (results.engines || []).filter(e => e.source === source);
+    return engines.length === 1 && engines[0].status === 'complete' && isCompleteCoverage(engines[0].coverage);
+  });
+  const status = results.status === 'complete' ? hasCompleteEvidence ? 'complete' : 'partial' : ['partial', 'failed'].includes(results.status) ? results.status : 'partial';
   const summary = { targetPath: results.targetPath || '.', timestamp: results.timestamp || new Date().toISOString(), p0Count: p0.length, p1Count: p1.length, p2Count: p2.length, unresolvedCount: unresolved.length, rejectedCount: rejected.length };
   const json = { schemaVersion: 'doublecheck/report/v2', status, reviewMode: results.reviewMode || 'dual', summary, engines: results.engines || [], findings, correlations, p0, p1, p2, unrated, unresolved, rejected, diagnostics, errors: results.errors || [] };
   const label = status === 'complete' ? 'Review complete' : status === 'failed' ? 'Review failed' : 'Review incomplete';

@@ -96,7 +96,20 @@ function normalizeRecord(source, record, root) {
   const remediation = source === 'architect' ? text(record.suggestion_code) : text(record.remediation?.strategy);
   const reportedConfidence = record.confidence ?? null;
   if (reportedConfidence !== null && (!object(reportedConfidence) || !['low', 'medium', 'high'].includes(reportedConfidence.score) || typeof reportedConfidence.reason !== 'string')) fail();
-  const finding = { source, externalId: text(record.fingerprint) || null, verdict, severity, title, description, locations: [...new Map(locations.map(l => [stableSerialize(l), l])).values()].sort((a, b) => stableSerialize(a).localeCompare(stableSerialize(b))), evidence: canonicalEvidence, remediation, reportedConfidence };
+  // Preserve independently validated context rather than discarding why a verdict was reached.
+  const verification = source === 'adversary' && explicitVerdict != null ? {
+    rejectionReason: record.reason ?? null,
+    blockers: record.blockers ?? [],
+    validationPlan: record.validation_plan ?? null,
+    rootCause: record.root_cause ?? record.claimed_root_cause ?? null,
+    intendedBehavior: record.intended_behavior ?? null,
+    conditions: record.conditions ?? [],
+    execution: record.execution ?? null,
+    severityAssessment: object(record.severity) ? record.severity : null,
+    trace: (record.trace || []).map(t => ({ ...t, file: canonicalizeFindingPath(t.file, root) })),
+    codeChanges: (record.remediation?.code_changes || []).map(c => ({ file: canonicalizeFindingPath(c.file_name, root), fixedCode: c.fixed_code }))
+  } : null;
+  const finding = { source, externalId: text(record.fingerprint) || null, verdict, severity, title, description, locations: [...new Map(locations.map(l => [stableSerialize(l), l])).values()].sort((a, b) => stableSerialize(a).localeCompare(stableSerialize(b))), evidence: canonicalEvidence, remediation, reportedConfidence, verification };
   const id = `${source}:${createHash('sha256').update(stableSerialize(finding)).digest('hex')}`;
   return { id, ...finding };
 }

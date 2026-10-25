@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { normalizeFindings, diagnostic } from './contracts.js';
+import { resolveInferencePolicy } from './inference-policy.js';
 import { emptyEngine, parseCoverage, constrainCompletion, validateCustomEngine } from './engine-result.js';
 
 export function resolveAuditTarget(targetPath = '.') {
@@ -26,13 +27,13 @@ export async function defaultAlibabaRunner(targetPath, options = {}) {
   const outputFile = path.join(tmp, 'output.json');
   const runner = options.execFileSync || execFileSync;
   try {
+    const inference = await resolveInferencePolicy(options, { readOcrConfig: options.readOcrConfig });
     const versionText = runner('ocr', ['version'], { encoding: 'utf8', stdio: 'pipe', timeout: 3000 });
     result.provenance.version = String(versionText).match(/v(\d+\.\d+\.\d+)/)?.[1] ?? null;
     const args = ['scan', '--repo', target.targetRoot];
     if (target.selectedPath) args.push('--path', target.selectedPath);
     args.push('--format', 'json', '-o', outputFile, '--no-plan', '--concurrency', String(options.concurrency || 4));
-    if (options.model) args.push('--model', options.model);
-    if (options.inference?.provider) args.push('--provider', options.inference.provider);
+    args.push('--model', inference.model, '--provider', inference.provider);
     let processFailed = false;
     try { runner('ocr', args, { stdio: 'pipe', encoding: 'utf8', timeout: options.timeout || 300000, maxBuffer: 1024 * 1024 }); }
     catch { processFailed = true; result.diagnostics.push(diagnostic('OCR_PROCESS_FAILED', 'architect')); }
@@ -51,14 +52,14 @@ export async function defaultAlibabaRunner(targetPath, options = {}) {
     result.provenance.revision = target.revision;
     result.provenance.provider = typeof raw.llm?.provider === 'string' ? raw.llm.provider : null;
     result.provenance.model = typeof raw.llm?.model === 'string' ? raw.llm.model : null;
-    result.provenance.endpoint = options.inference?.endpoint ?? null;
+    result.provenance.endpoint = inference.endpoint;
     if (result.coverage.origin === 'unknown') result.diagnostics.push(diagnostic('UNKNOWN_NATIVE_COVERAGE', 'architect'));
     if (normalized.invalidRecordCount || raw.summary?.budget_exceeded || Array.isArray(raw.warnings) && raw.warnings.length) {
       if (result.status !== 'failed') result.status = 'partial';
       result.diagnostics.push(diagnostic('OCR_PARTIAL_RESULT', 'architect'));
     }
     if (processFailed) result.status = result.findings.length ? 'partial' : 'failed';
-    if (options.inference && (result.provenance.provider !== options.inference.provider || result.provenance.model !== options.inference.model)) {
+    if (result.provenance.provider !== inference.provider || result.provenance.model !== inference.model) {
       result.status = 'partial'; result.diagnostics.push(diagnostic('INFERENCE_IDENTITY_MISMATCH', 'architect'));
     }
     return constrainCompletion(result);

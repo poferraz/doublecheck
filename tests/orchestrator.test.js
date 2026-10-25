@@ -2,10 +2,15 @@ import { it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { defaultAlibabaRunner, defaultCloudflareRunner, runDualAudit, resolveAuditTarget } from '../src/orchestrator.js';
+import { defaultAlibabaRunner as nativeAlibabaRunner, defaultCloudflareRunner, runDualAudit, resolveAuditTarget } from '../src/orchestrator.js';
 import { withTempDir } from './helpers/temp.js';
 import { completeEngine, comment } from './helpers/results.js';
 const fixture = name => JSON.parse(fs.readFileSync(`tests/fixtures/ocr/${name}.json`, 'utf8'));
+const defaultAlibabaRunner = (target, options = {}) => nativeAlibabaRunner(target, {
+  model: 'test-local',
+  readOcrConfig: () => ({ custom_providers: { ollama: { protocol: 'openai', url: 'http://localhost:11434/v1', model: 'test-local', api_key: 'placeholder' } } }),
+  ...options
+});
 function runner(payload, fail = false, capture = () => {}) {
   return (cmd, args) => {
     if (args[0] === 'version') return 'open-code-review v1.13.3 (375f64c)';
@@ -67,3 +72,13 @@ it('subtree selection preserves Git root and literal subprocess arguments', asyn
   await defaultAlibabaRunner(file, { execFileSync: runner(fixture('complete'), false, (_, a) => { args = a; }) });
   expect(args[args.indexOf('--path') + 1]).toBe('src/quoted file.js');
 }));
+it('explicitly unknown custom coverage cannot become a complete review', async () => {
+  const engine = completeEngine(); engine.coverage.origin = 'unknown';
+  const result = await runDualAudit('.', { reviewMode: 'architect', alibabaRunner: () => engine });
+  expect(result.status).toBe('partial'); expect(result.engines.find(e => e.source === 'architect').coverage.origin).toBe('unknown');
+});
+it('direct native library calls refuse ambient provider selection before launching OCR', async () => {
+  let calls = 0;
+  const result = await nativeAlibabaRunner('.', { model: 'test-local', readOcrConfig: () => ({ provider: 'remote' }), execFileSync: () => { calls++; return ''; } });
+  expect(result.status).toBe('failed'); expect(calls).toBe(0);
+});

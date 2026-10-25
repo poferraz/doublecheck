@@ -1,10 +1,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { diagnostic } from './contracts.js';
-function validate(paths) {
+function validate(paths, protectedInputs = []) {
+  const protectedPaths = new Set(protectedInputs.filter(Boolean).map(file => path.resolve(file)));
+  const protectedInodes = new Set();
+  for (const file of protectedPaths) {
+    try { const stat = fs.statSync(file); protectedInodes.add(`${stat.dev}:${stat.ino}`); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
   const seen = new Set(); const inodes = new Set();
   for (const file of Object.values(paths)) {
     const resolved = path.resolve(file);
+    if (protectedPaths.has(resolved)) throw Error('Reports cannot replace review inputs.');
     if (seen.has(resolved)) throw Error('Report destinations must be distinct.');
     seen.add(resolved);
     if (!fs.statSync(path.dirname(resolved)).isDirectory()) throw Error('Report parent must be a directory.');
@@ -12,16 +19,17 @@ function validate(paths) {
       const stat = fs.lstatSync(resolved);
       if (!stat.isFile() || stat.isSymbolicLink()) throw Error('Report destination must be a regular file.');
       const inode = `${stat.dev}:${stat.ino}`;
+      if (protectedInodes.has(inode)) throw Error('Reports cannot replace review inputs.');
       if (inodes.has(inode)) throw Error('Report destinations must not be hardlinks.');
       inodes.add(inode);
     } catch (error) { if (error.code !== 'ENOENT') throw error; }
   }
 }
-export function resolveOutputPaths({ format, output }) {
+export function resolveOutputPaths({ format, output, protectedInputs = [] }) {
   if (!['markdown', 'json', 'both'].includes(format) || typeof output !== 'string' || !output) throw Error('Invalid output configuration.');
   const base = output.replace(/\.(md|json)$/i, '');
   const paths = format === 'both' ? { markdown: path.resolve(`${base}.md`), json: path.resolve(`${base}.json`) } : { [format]: path.resolve(output) };
-  validate(paths); return paths;
+  validate(paths, protectedInputs); return paths;
 }
 export function writeReports(paths, report) {
   const written = []; const staged = [];

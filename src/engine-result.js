@@ -11,11 +11,15 @@ export function parseCoverage(value, root, native = false) {
   const selected = list('selected'); const reviewed = native ? [...new Set([...list('completed'), ...list('reused')])] : list('reviewed');
   const failed = list('failed'); const excluded = list(native ? 'waived' : 'excluded');
   if ([...reviewed, ...failed, ...excluded].some(p => !selected.includes(p)) || reviewed.some(p => failed.includes(p) || excluded.includes(p)) || failed.some(p => excluded.includes(p))) throw new FindingValidationError('Inconsistent coverage');
-  return { selected, reviewed, failed, excluded, origin: 'reported' };
+  return { selected, reviewed, failed, excluded, origin: native || value.origin === 'reported' ? 'reported' : 'unknown' };
+}
+export function isCompleteCoverage(c) {
+  return c?.origin === 'reported' && ['selected', 'reviewed', 'failed', 'excluded'].every(k => Array.isArray(c[k])) &&
+    c.selected.length > 0 && c.reviewed.length > 0 && !c.failed.length && !c.excluded.length &&
+    c.selected.every(p => c.reviewed.includes(p)) && c.reviewed.every(p => c.selected.includes(p));
 }
 export function constrainCompletion(result) {
-  const c = result.coverage;
-  if (result.status === 'complete' && (c.origin !== 'reported' || !c.reviewed?.length || c.failed.length || c.excluded.length || c.selected.some(p => !c.reviewed.includes(p)))) {
+  if (result.status === 'complete' && !isCompleteCoverage(result.coverage)) {
     result.status = 'partial'; result.diagnostics.push(diagnostic('INCOMPLETE_COVERAGE', result.source));
   }
   return result;

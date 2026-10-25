@@ -33,3 +33,15 @@ it('display path normalization is not a containment check', () => {
   expect(normalizePath('src\\a.js')).toBe('src/a.js');
   expect(normalizePath('../../outside.js')).toBe('../../outside.js');
 });
+it('does not trust a complete label without evidence for the requested engines', () => {
+  const report = synthesizeReport({ status: 'complete', findings: [], engines: [] });
+  expect(report.json.status).toBe('partial');
+});
+it('retains rejected reasons and unresolved validation requirements', () => {
+  const rejected = JSON.parse(fs.readFileSync('tests/fixtures/findings/cloudflare-rejected.json'));
+  const pending = JSON.parse(fs.readFileSync('tests/fixtures/findings/cloudflare-needs-validation.json'));
+  const report = synthesizeReport({ status: 'partial', findings: normalize([...rejected, ...pending]), engines: [] });
+  expect(report.json.rejected[0].verification.rejectionReason).toBe('Guard prevents access');
+  expect(report.json.unresolved[0].verification.blockers).toEqual(['Runtime unknown']);
+  expect(report.markdown).toContain('Guard prevents access');
+});

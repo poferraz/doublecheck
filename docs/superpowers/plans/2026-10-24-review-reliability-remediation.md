@@ -59,7 +59,7 @@ Create `src/contracts.js` with JSDoc types and zero-dependency validation. These
 - `Source`: `adversary | architect`.
 - `Verdict`: `confirmed | needs_validation | rejected`. A legacy finding without an explicit verdict becomes `needs_validation`; do not silently certify it. Native OCR comments also start as review candidates (`needs_validation`) unless an external verification record explicitly establishes confirmation. The UI must still show their reported severity.
 - `Severity`: `critical | high | medium | low | informational | null`. Normalize case. Missing/null severity stays null and appears as **Unrated**, rather than becoming medium/low. Unknown nonempty severity strings are validation errors.
-- `Finding`: `{ id, source, externalId, verdict, severity, title, description, locations, evidence, remediation, reportedConfidence }`. `locations` contains `{ file, startLine, endLine, kind }`; line values are positive integers or null, and ranges must be ordered. `reportedConfidence` is source-declared metadata or null, never invented from overlap.
+- `Finding`: `{ id, source, externalId, verdict, severity, title, description, locations, evidence, remediation, reportedConfidence, verification }`. `locations` contains `{ file, startLine, endLine, kind }`; line values are positive integers or null, and ranges must be ordered. `reportedConfidence` is source-declared metadata or null, never invented from overlap.
 - `Diagnostic`: `{ code, source, message, recordIndex? }`. Messages are bounded and redacted; never include full subprocess errors, raw records, tokens, or request bodies.
 - `canonicalizeFindingPath(input, targetRoot)` returns a repository-relative POSIX path or throws `FindingValidationError`. Convert relative backslashes, resolve dot segments and host-native absolute paths, reject out-of-root/foreign absolute paths. Preserve case. This is an identity check, not an OS filesystem sandbox.
 - Missing/zero line numbers become null; they never authorize line correlation. An invalid/out-of-root path invalidates that record rather than being stripped into another file's identity.
@@ -249,13 +249,13 @@ Execution order is sequential. Dependencies are: Task 2 → 1; Task 3 → 2; Tas
 
 ## Final Acceptance and Handoff
 
-- [ ] Every audit finding in the coverage table has an implemented remedy and named regression evidence; gaps remain explicitly open rather than counted as passed.
-- [ ] A default dual scan with no adversary input, a missing OCR executable, partial native coverage, or unknown import coverage cannot print a complete dual-review success or exit 0. Explicit architect mode can complete with only architect coverage and labels that scope clearly.
-- [ ] Rejected records never become blockers; unresolved high/unrated records remain visible and yield exit 2; duplicate titles never hide findings; overlap never raises severity.
-- [ ] Actual engine/provider/model attribution is preserved, remote routing requires explicit opt-in, and no local endpoint is represented as proof of local inference.
-- [ ] CLI outputs are distinct and parseable, existing team policy is preserved, and every exported local reference resolves.
+- [x] Every audit finding in the coverage table has an implemented remedy and named regression evidence; gaps remain explicitly open rather than counted as passed.
+- [x] A default dual scan with no adversary input, a missing OCR executable, partial native coverage, or unknown import coverage cannot print a complete dual-review success or exit 0. Explicit architect mode can complete with only architect coverage and labels that scope clearly.
+- [x] Rejected records never become blockers; unresolved high/unrated records remain visible and yield exit 2; duplicate titles never hide findings; overlap never raises severity.
+- [x] Actual engine/provider/model attribution is preserved, remote routing requires explicit opt-in, and no local endpoint is represented as proof of local inference.
+- [x] CLI outputs are distinct and parseable, existing team policy is preserved, and every exported local reference resolves.
 - [ ] Offline tests, supported-runtime jobs, packaged Node 20 smoke, and the separately recorded native contract check have current evidence. Unverified actual-host discovery or model-locality claims remain excluded from documentation.
-- [ ] Review the whole change for regression risk, inspect the package dry run, and inspect Git status for caches/generated output/secrets before preparing a release. Commits remain local unless the user requests push/publication.
+- [x] Review the whole change for regression risk, inspect the package dry run, and inspect Git status for caches/generated output/secrets before preparing a release. Commits remain local unless the user requests push/publication.
 
 Recommended execution: implement Tasks 1–11 sequentially in this chat, with a focused review at each milestone. The repaired adapter/reporting boundaries can support later capabilities such as OCR delegation, diff-scoped reviews, or deterministic source checks, each under its own specification after this remediation is verified.
 
@@ -274,4 +274,6 @@ Recommended execution: implement Tasks 1–11 sequentially in this chat, with a 
 - Pinned OCR 1.13.3 source confirms manifests apply to review, not scan. Successful full-file scans therefore remain partial with unknown coverage. Native conformance must test that limitation, rather than inventing a complete result.
 - Source-checkout examples use `node ./bin/doublecheck.js` so they cannot accidentally execute published npm 0.1.1 instead of this unreleased implementation.
 - Export verification caught a pre-existing double-sed frontmatter bug; the converter now preserves the full body and rewrites only known reference links.
-- Current local evidence: 77 passing tests on Node 26; packaged no-devDependencies smoke passed; real OCR 1.13.3 preview passed; fresh agent guidance pressure test passed. Other-runtime CI and full mock-inference workflow are recorded as unexecuted, not passed. See docs/verification/review-reliability.md for exact scope.
+- Current local evidence: 82 passing tests on Node 26; packaged no-devDependencies smoke passed; real OCR 1.13.3 preview passed; fresh agent guidance pressure test passed. Other-runtime CI and full mock-inference workflow are recorded as unexecuted, not passed. See docs/verification/review-reliability.md for exact scope.
+
+- Final review corrective pass: unknown custom coverage remains unknown; reports require coverage evidence before completion; direct native library calls revalidate explicit inference routing; output destinations cannot replace source/import inputs; validated verification context survives normalization. Five new regressions were observed failing before fixes. All 82 tests pass. External runtime/native inference checks above remain open.

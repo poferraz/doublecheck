@@ -1,4 +1,5 @@
 import path from 'node:path';
+import fs from 'node:fs';
 import { parseArgs } from 'node:util';
 import { checkEnvironment } from './doctor.js';
 import { runDualAudit, resolveAuditTarget } from './orchestrator.js';
@@ -48,13 +49,13 @@ export async function runCli(argv = process.argv.slice(2), dependencies = {}) {
       return 0;
     }
     resolveAuditTarget(config.targetPath);
-    const paths = config.doctorOnly ? null : resolveOutputPaths(config);
+    const paths = config.doctorOnly ? null : resolveOutputPaths({ ...config, protectedInputs: [fs.statSync(config.targetPath).isFile() ? config.targetPath : null, config.findingsFile] });
     const doctor = await (dependencies.checkEnvironment || checkEnvironment)({ ollamaEndpoint: config.ollamaEndpoint, model: config.model, ocrProvider: config.ocrProvider, allowRemote: config.allowRemote });
     for (const warning of doctor.warnings || []) console.warn(terminal(warning));
     if (!doctor.ok) { for (const error of doctor.errors || []) console.error(terminal(error)); return 2; }
     console.log(`Inference provider: ${terminal(doctor.inference?.provider)}; model: ${terminal(doctor.activeModel)}`);
     if (config.doctorOnly) { console.log('Required engine configuration is ready; this does not certify review coverage.'); return 0; }
-    const raw = await (dependencies.runDualAudit || runDualAudit)(config.targetPath, { model: doctor.activeModel, inference: doctor.inference, findingsFile: config.findingsFile, reviewMode: config.reviewMode });
+    const raw = await (dependencies.runDualAudit || runDualAudit)(config.targetPath, { model: doctor.activeModel, inference: doctor.inference, ollamaEndpoint: config.ollamaEndpoint, ocrProvider: config.ocrProvider, allowRemote: config.allowRemote, findingsFile: config.findingsFile, reviewMode: config.reviewMode });
     const report = synthesizeReport(raw);
     const output = await (dependencies.writeReports || writeReports)(paths, report);
     for (const file of output.written) console.log(`Report saved: ${terminal(file)}`);

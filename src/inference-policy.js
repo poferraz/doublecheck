@@ -9,6 +9,7 @@ export function normalizeEndpoint(value) {
   return url.href.replace(/\/$/, '');
 }
 export async function resolveInferencePolicy(options = {}, dependencies = {}) {
+  if (typeof options.model !== 'string' || !options.model.trim()) throw Error('An explicit installed model is required.');
   const endpoint = normalizeEndpoint(options.ollamaEndpoint || 'http://localhost:11434');
   const host = new URL(endpoint).hostname;
   const route = ['localhost', '127.0.0.1', '[::1]'].includes(host) ? 'loopback' : 'remote';
