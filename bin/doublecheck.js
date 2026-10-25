@@ -7,6 +7,6 @@ runCli().then(code => {
     process.exit(code);
   }
 }).catch(err => {
-  console.error('\x1b[31m[FATAL ERROR]\x1b[0m', err);
-  process.exit(1);
+  console.error('Review failed due to an unexpected operational error.');
+  process.exit(2);
 });

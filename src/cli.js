@@ -1,75 +1,66 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
+import { parseArgs } from 'node:util';
 import { checkEnvironment } from './doctor.js';
-import { runDualAudit } from './orchestrator.js';
-import { synthesizeReport } from './reporter.js';
+import { runDualAudit, resolveAuditTarget } from './orchestrator.js';
+import { synthesizeReport, getReviewExitCode } from './reporter.js';
+import { resolveOutputPaths, writeReports } from './output.js';
 
 export function parseCliArgs(argv = []) {
-  const config = {
-    targetPath: '.',
-    model: '',
-    ollamaEndpoint: 'http://localhost:11434',
-    format: 'markdown',
-    output: 'doublecheck-report.md',
-    doctorOnly: false,
-    findingsFile: '',
-    initReview: false,
-    help: false
-  };
-
-  const args = [...argv];
-  while (args.length > 0) {
-    const current = args.shift();
-
-    if (current === '--help' || current === '-h') {
-      config.help = true;
-    } else if (current === '--model' || current === '-m') {
-      config.model = args.shift() || '';
-    } else if (current === '--ollama') {
-      config.ollamaEndpoint = args.shift() || 'http://localhost:11434';
-    } else if (current === '--format' || current === '-f') {
-      config.format = args.shift() || 'markdown';
-    } else if (current === '--output' || current === '-o') {
-      config.output = args.shift() || 'doublecheck-report.md';
-    } else if (current === '--doctor-only') {
-      config.doctorOnly = true;
-    } else if (current === '--init-review' || current === '--init-review-md') {
-      config.initReview = true;
-    } else if (current === '--findings') {
-      config.findingsFile = args.shift() || '';
-    } else if (!current.startsWith('-') && config.targetPath === '.') {
-      config.targetPath = current;
-    }
-  }
-
-  return config;
+  const { values, positionals } = parseArgs({ args: argv, strict: true, allowPositionals: true, options: {
+    help: { type: 'boolean', short: 'h' }, model: { type: 'string', short: 'm' }, ollama: { type: 'string' },
+    format: { type: 'string', short: 'f' }, output: { type: 'string', short: 'o' }, findings: { type: 'string' },
+    'doctor-only': { type: 'boolean' }, 'init-review': { type: 'boolean' }, 'init-review-md': { type: 'boolean' },
+    'ocr-provider': { type: 'string' }, 'allow-remote': { type: 'boolean' }, force: { type: 'boolean' }, mode: { type: 'string' }
+  } });
+  const format = values.format || 'markdown'; const reviewMode = values.mode || 'dual';
+  const initReview = !!(values['init-review'] || values['init-review-md']);
+  if (positionals.length > 1 || !['markdown', 'json', 'both'].includes(format) || !['dual', 'architect'].includes(reviewMode) || reviewMode === 'architect' && values.findings || values.force && !initReview) throw Error('Invalid or incompatible arguments.');
+  for (const key of ['model', 'ollama', 'format', 'output', 'findings', 'ocr-provider', 'mode']) if (Object.hasOwn(values, key) && (!values[key].trim() || values[key].startsWith('-'))) throw Error('Missing option value.');
+  return { targetPath: positionals[0] || '.', model: values.model || '', ollamaEndpoint: values.ollama || 'http://localhost:11434', format, output: values.output || (format === 'json' ? 'doublecheck-report.json' : 'doublecheck-report.md'), doctorOnly: !!values['doctor-only'], findingsFile: values.findings || '', initReview, help: !!values.help, ocrProvider: values['ocr-provider'] || 'ollama', allowRemote: !!values['allow-remote'], force: !!values.force, reviewMode };
 }
-
 export function printHelp() {
-  console.log(`
-\x1b[1m\x1b[36mdoublecheck\x1b[0m — Multi-Perspective Code Security & Architecture Review
-
-\x1b[1mUSAGE:\x1b[0m
-  npx doublecheck [path] [options]
-
-\x1b[1mARGUMENTS:\x1b[0m
-  path                   Target directory or file to audit (default: '.')
-
-\x1b[1mOPTIONS:\x1b[0m
-  -m, --model <name>     Specify Ollama LLM model name (default: auto-detected)
-  --ollama <url>         Custom Ollama API base URL (default: http://localhost:11434)
-  -f, --format <format>  Report format: 'markdown', 'json', or 'both' (default: markdown)
-  -o, --output <file>    Output destination file (default: doublecheck-report.md)
-  --findings <file>      Path to pre-computed Cloudflare findings JSON
-  --init-review          Generate .github/REVIEW.md for Claude Code Review
-  --doctor-only          Check local environment and exit
-  -h, --help             Show this help message
-
-\x1b[1mEXAMPLES:\x1b[0m
-  npx doublecheck .
-  npx doublecheck src/ --model deepseek-v4.1-flash:1017-cloud
-  npx doublecheck . --format json -o audit.json
-`);
+  console.log(`doublecheck — evidence-aware code review
+Usage: npx @poferraz/doublecheck [path] [options]
+  --mode <dual|architect>  Required review lenses (default: dual)
+  -m, --model <name>      Installed Ollama model
+  --ollama <url>         Ollama endpoint (default: http://localhost:11434)
+  --ocr-provider <name>  Matching custom OCR provider (default: ollama)
+  --allow-remote         Opt in to remote endpoints/cloud-tagged models
+  --findings <file>      Import adversary findings (coverage remains unknown)
+  -f, --format <value>   markdown, json, or both
+  -o, --output <path>    Report destination
+  --doctor-only         Verify required inference/tool configuration
+  --init-review         Initialize review instructions without inference
+  --force               Replace existing review instructions with --init-review
+  -h, --help            Show help
+Exit: 0 complete/no blockers; 1 confirmed high/critical; 2 incomplete, unresolved high/unrated, or operational failure.`);
+}
+const terminal = value => String(value ?? '').replace(/[\x00-\x1f\x7f]/g, ' ');
+export async function runCli(argv = process.argv.slice(2), dependencies = {}) {
+  try {
+    const config = parseCliArgs(argv);
+    if (config.help) { printHelp(); return 0; }
+    if (config.initReview) {
+      const dir = path.resolve(config.targetPath, '.github'); fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'REVIEW.md'), generateDefaultReviewMd()); return 0;
+    }
+    resolveAuditTarget(config.targetPath);
+    const paths = config.doctorOnly ? null : resolveOutputPaths(config);
+    const doctor = await (dependencies.checkEnvironment || checkEnvironment)({ ollamaEndpoint: config.ollamaEndpoint, model: config.model, ocrProvider: config.ocrProvider, allowRemote: config.allowRemote });
+    for (const warning of doctor.warnings || []) console.warn(terminal(warning));
+    if (!doctor.ok) { for (const error of doctor.errors || []) console.error(terminal(error)); return 2; }
+    console.log(`Inference provider: ${terminal(doctor.inference?.provider)}; model: ${terminal(doctor.activeModel)}`);
+    if (config.doctorOnly) { console.log('Required engine configuration is ready; this does not certify review coverage.'); return 0; }
+    const raw = await (dependencies.runDualAudit || runDualAudit)(config.targetPath, { model: doctor.activeModel, inference: doctor.inference, findingsFile: config.findingsFile, reviewMode: config.reviewMode });
+    const report = synthesizeReport(raw);
+    const output = await (dependencies.writeReports || writeReports)(paths, report);
+    for (const file of output.written) console.log(`Report saved: ${terminal(file)}`);
+    if (output.diagnostics.length) { console.error('Report output failed; any saved artifact paths are listed above.'); return 2; }
+    console.log(report.json.status === 'complete' ? 'Review complete' : report.json.status === 'failed' ? 'Review failed' : 'Review incomplete');
+    console.log(`Confirmed P0: ${report.p0Count}; P1: ${report.p1Count}; unresolved: ${report.json.unresolved.length}`);
+    return getReviewExitCode(report.json);
+  } catch { console.error('Review failed: invalid arguments, target, configuration, or output. Run --help for usage.'); return 2; }
 }
 
 export function generateDefaultReviewMd() {
@@ -122,78 +113,3 @@ When an Adversary attack class and an Architect AST invariant both flag the exac
 `;
 }
 
-export async function runCli(argv = process.argv.slice(2)) {
-  const config = parseCliArgs(argv);
-
-  if (config.help) {
-    printHelp();
-    return 0;
-  }
-
-  if (config.initReview) {
-    const targetDir = config.targetPath === '.' ? process.cwd() : path.resolve(config.targetPath);
-    const githubDir = path.join(targetDir, '.github');
-    if (!fs.existsSync(githubDir)) {
-      fs.mkdirSync(githubDir, { recursive: true });
-    }
-    const targetFile = path.join(githubDir, 'REVIEW.md');
-    fs.writeFileSync(targetFile, generateDefaultReviewMd(), 'utf8');
-    console.log(`\n\x1b[32m✔\x1b[0m Created Claude Code Review configuration at \x1b[1m${targetFile}\x1b[0m`);
-    return 0;
-  }
-
-  console.log(`\n\x1b[1m\x1b[34m[doublecheck]\x1b[0m Running pre-flight environment checks...`);
-  const doctor = await checkEnvironment({
-    ollamaEndpoint: config.ollamaEndpoint,
-    model: config.model
-  });
-
-  if (!doctor.ok) {
-    console.error(`\n\x1b[31m[ERROR]\x1b[0m Pre-flight checks failed:`);
-    doctor.errors.forEach(err => console.error(`  - ${err}`));
-    return 1;
-  }
-
-  console.log(`\x1b[32m✔\x1b[0m Local Ollama connected at ${config.ollamaEndpoint}`);
-  console.log(`\x1b[32m✔\x1b[0m Active model: \x1b[1m${doctor.activeModel}\x1b[0m`);
-  if (doctor.ocrAvailable) {
-    console.log(`\x1b[32m✔\x1b[0m Alibaba Open Code Review (ocr) available`);
-  }
-
-  if (config.doctorOnly) {
-    console.log(`\nEnvironment is fully ready for audits.`);
-    return 0;
-  }
-
-  console.log(`\n\x1b[1m\x1b[34m[doublecheck]\x1b[0m Starting Dual-Perspective Audit on \x1b[1m${config.targetPath}\x1b[0m...`);
-  console.log(`  1. Lens 1: The Adversary (Cloudflare Security Audit Standard)`);
-  console.log(`  2. Lens 2: The Principal Architect (Alibaba Open Code Review)`);
-
-  const rawResults = await runDualAudit(config.targetPath, {
-    model: doctor.activeModel,
-    ollamaEndpoint: config.ollamaEndpoint,
-    findingsFile: config.findingsFile
-  });
-
-  const report = synthesizeReport(rawResults);
-
-  // Write outputs
-  if (config.format === 'json' || config.format === 'both') {
-    const jsonPath = config.format === 'both' ? config.output.replace(/\.md$/, '.json') : config.output;
-    fs.writeFileSync(jsonPath, JSON.stringify(report.json, null, 2), 'utf8');
-    console.log(`\n\x1b[32m✔\x1b[0m JSON report saved to \x1b[1m${jsonPath}\x1b[0m`);
-  }
-
-  if (config.format === 'markdown' || config.format === 'both') {
-    fs.writeFileSync(config.output, report.markdown, 'utf8');
-    console.log(`\n\x1b[32m✔\x1b[0m Markdown report saved to \x1b[1m${config.output}\x1b[0m`);
-  }
-
-  console.log(`\n\x1b[1mAudit Complete:\x1b[0m`);
-  console.log(`  - Converged High-Confidence Defects: \x1b[1m\x1b[31m${report.convergedCount}\x1b[0m`);
-  console.log(`  - Priority 0 Immediate Fixes: \x1b[1m\x1b[31m${report.p0Count}\x1b[0m`);
-  console.log(`  - Priority 1 Quality & Security: \x1b[33m${report.p1Count}\x1b[0m`);
-  console.log(`  - Priority 2 Hardening: ${report.p2Count}`);
-
-  return 0;
-}
