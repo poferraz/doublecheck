@@ -45,7 +45,11 @@
 ### Task 3: Verification and live rerun
 
 **Files:** docs/verification/self-review-recovery.md.
-- [ ] Run full suite, packaged consumer smoke, native preview, syntax/whitespace checks.
-- [ ] Fresh final review of this fix range; handle important findings with one regression-backed corrective pass.
-- [ ] Rerun production CLI on the entire repo with authorized DeepSeek cloud model and both output formats, outside the source tree. Inspect actual process outcome, provenance, diagnostics, and retained candidates.
-- [ ] Record results and limits, commit local changes, leave clean checkout.
+- [x] Run full suite, packaged consumer smoke, native preview, syntax/whitespace checks.
+- [x] Fresh final review of this fix range; handle important findings with one regression-backed corrective pass.
+- [x] Rerun production CLI on the entire repo with authorized DeepSeek cloud model and both output formats, outside the source tree. Inspect actual process outcome, provenance, diagnostics, and retained candidates.
+- [x] Record results and limits, commit local changes, leave clean checkout.
+
+## Execution result
+
+All tasks complete. Final suite 111/111, packaged smoke passed; fresh review corrections verified RED→GREEN. Live OCR rerun at 65b3b63 finished in 9m43s, with 28/28 preview-selected files recorded completed and zero model failures. Final native output retained 93 candidates. Exit 2/partial remains intentional for unknown native scan coverage and unresolved candidates. See docs/verification/self-review-recovery.md for detailed evidence and limits.
