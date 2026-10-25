@@ -1,65 +1,23 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { it, expect } from 'vitest';
 import { checkEnvironment, selectBestModel } from '../src/doctor.js';
-
-describe('Doctor Pre-flight Environment Checks', () => {
-  afterEach(() => vi.unstubAllGlobals());
-
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('selects preferred coding models when available in Ollama model list', () => {
-    const models = [
-      { name: 'llama3:latest' },
-      { name: 'deepseek-v4.1-flash:1017-cloud' },
-      { name: 'nomic-embed-text:latest' }
-    ];
-    const selected = selectBestModel(models);
-    expect(selected).toBe('deepseek-v4.1-flash:1017-cloud');
-  });
-
-  it('falls back to qwen or first available chat model if preferred model is not present', () => {
-    const models = [
-      { name: 'nomic-embed-text:latest' },
-      { name: 'qwen2.5-coder:7b' }
-    ];
-    const selected = selectBestModel(models);
-    expect(selected).toBe('qwen2.5-coder:7b');
-  });
-
-  it('returns ok: true and model details when Ollama is running and responsive', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        models: [
-          { name: 'deepseek-v4.1-flash:1017-cloud' }
-        ]
-      })
-    }));
-
-    const result = await checkEnvironment({
-      ollamaEndpoint: 'http://localhost:11434',
-      skipOcrCheck: true
-    });
-
-    expect(result.ok).toBe(true);
-    expect(result.ollamaReady).toBe(true);
-    expect(result.activeModel).toBe('deepseek-v4.1-flash:1017-cloud');
-    expect(result.errors).toHaveLength(0);
-  });
-
-  it('returns ok: false and helpful setup instructions when Ollama is offline', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')));
-
-    const result = await checkEnvironment({
-      ollamaEndpoint: 'http://localhost:11434',
-      skipOcrCheck: true
-    });
-
-    expect(result.ok).toBe(false);
-    expect(result.ollamaReady).toBe(false);
-    expect(result.errors).toContainEqual(
-      expect.stringContaining('Could not connect to local Ollama')
-    );
-  });
+const model = 'qwen2.5-coder:7b';
+const config = () => ({ custom_providers: { ollama: { url: 'http://localhost:11434/v1', protocol: 'openai', model, api_key: 'ollama' } } });
+const ready = (options = {}) => checkEnvironment({ model, fetch: async () => ({ ok: true, json: async () => ({ models: [{ name: model }] }) }), readOcrConfig: config, execFileSync: () => 'open-code-review v1.13.3', ...options });
+it('selects available non-embedding models, never inventing a model', () => {
+  expect(selectBestModel([])).toBeNull(); expect(selectBestModel([{ name: 'nomic-embed-text' }])).toBeNull();
+  expect(selectBestModel([{ name: 'embed' }, { name: model }])).toBe(model);
+});
+it('requires a usable model and exact requested name or latest alias', async () => {
+  expect((await ready()).ok).toBe(true);
+  expect((await ready({ fetch: async () => ({ ok: true, json: async () => ({ models: [] }) }) })).ok).toBe(false);
+  expect((await ready({ model: 'qwen2.5-coder:70b' })).ok).toBe(false);
+});
+it('missing required OCR makes readiness fail with visible diagnostics', async () => {
+  const result = await ready({ execFileSync: () => { throw Error('secret-marker'); } });
+  expect(result.ok).toBe(false); expect(result.ocrAvailable).toBe(false);
+  expect(result.errors.join('')).not.toContain('secret-marker');
+});
+it('connection failures and cloud model refusal never report ready', async () => {
+  expect((await ready({ fetch: async () => { throw Error('secret-marker'); } })).ok).toBe(false);
+  expect((await ready({ model: 'qwen:cloud', fetch: async () => ({ ok: true, json: async () => ({ models: [{ name: 'qwen:cloud' }] }) }) })).ok).toBe(false);
 });
