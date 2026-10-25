@@ -1,11 +1,22 @@
 import path from 'node:path';
-import { isCompleteCoverage, validateCanonicalFinding } from './engine-result.js';
+import { isCompleteCoverage, parseCoverage, validateCanonicalFinding } from './engine-result.js';
 import { normalizeFindings, diagnostic } from './contracts.js';
 import { correlateFindings, deduplicateFindings } from './correlation.js';
 export function normalizePath(p = '') { return path.posix.normalize(p.replace(/\\/g, '/')); }
 export const detectConvergence = correlateFindings;
 const escape = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/([\\`*_{}\[\]()#+.!|~-])/g, '\\$1');
 const inline = value => escape(String(value ?? '').replace(/[\r\n\x00-\x1f]/g, ' '));
+const object = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+function optionalStrings(value, keys) {
+  return object(value) && keys.every(key => value[key] == null || typeof value[key] === 'string');
+}
+function reportEngine(engine, targetRoot) {
+  if (!object(engine) || !['architect', 'adversary'].includes(engine.source) || !['complete', 'partial', 'failed', 'skipped'].includes(engine.status) || !object(engine.coverage) || !optionalStrings(engine.provenance, ['tool', 'version', 'mode', 'targetRoot', 'revision', 'provider', 'model', 'endpoint'])) throw Error('Invalid engine.');
+  if (engine.requestedInference != null && !optionalStrings(engine.requestedInference, ['provider', 'model', 'endpoint'])) throw Error('Invalid requested inference.');
+  const execution = engine.execution;
+  if (execution != null && (!object(execution) || !['not_started', 'succeeded', 'timed_out', 'failed'].includes(execution.status) || !optionalStrings(execution, ['sessionId']) || ['timeoutMs', 'elapsedMs'].some(k => execution[k] != null && (!Number.isSafeInteger(execution[k]) || execution[k] < 0)) || execution.completedFiles != null && (!Array.isArray(execution.completedFiles) || execution.completedFiles.some(p => typeof p !== 'string')))) throw Error('Invalid execution.');
+  return { ...engine, coverage: parseCoverage(engine.coverage, targetRoot) };
+}
 function renderFinding(f) {
   let out = `### ${inline(f.title)}\n\n- Source: ${inline(f.source)}\n- Verdict: ${inline(f.verdict)}\n- Severity: ${inline(f.severity || 'Unrated')}\n`;
   for (const l of f.locations) out += `- Location: ${inline(l.file)}:${l.startLine ?? 'unknown'}${l.endLine && l.endLine !== l.startLine ? `–${l.endLine}` : ''}\n`;
@@ -30,12 +41,9 @@ export function getReviewExitCode(report) {
 }
 export function synthesizeReport(results = {}) {
   const diagnostics = []; const engines = [];
-  const object = v => v !== null && typeof v === 'object' && !Array.isArray(v);
   for (const engine of Array.isArray(results.engines) ? results.engines : []) {
-    if (!object(engine) || !object(engine.coverage) || !object(engine.provenance)) {
-      diagnostics.push(diagnostic('INVALID_REPORT_ENGINE', 'report')); continue;
-    }
-    engines.push(engine);
+    try { engines.push(reportEngine(engine, path.resolve(results.targetPath || '.'))); }
+    catch { diagnostics.push(diagnostic('INVALID_REPORT_ENGINE', 'report')); continue; }
     if (Array.isArray(engine.diagnostics)) diagnostics.push(...engine.diagnostics.filter(d => object(d) && typeof d.code === 'string' && typeof d.source === 'string'));
   }
   let input = results.findings;

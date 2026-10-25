@@ -65,3 +65,16 @@ it('diagnoses malformed engine objects without crashing or claiming completion',
   expect(report.json.status).toBe('partial');
   expect(report.json.diagnostics.some(d => d.code === 'INVALID_REPORT_ENGINE')).toBe(true);
 });
+it.each([null, {}, '../escape.js', 12])('does not certify malformed coverage path %j', file => {
+  const engine = completeEngine(); engine.coverage.selected = [file]; engine.coverage.reviewed = [file];
+  const report = synthesizeReport({ status: 'complete', reviewMode: 'architect', findings: [], engines: [engine] });
+  expect(report.json.status).toBe('partial');
+  expect(report.json.diagnostics.some(d => d.code === 'INVALID_REPORT_ENGINE')).toBe(true);
+});
+it.each(['provenance', 'requestedInference', 'execution'])('diagnoses malformed displayed %s while retaining valid finding siblings', key => {
+  const valid = normalize([upstream()])[0]; const engine = completeEngine();
+  engine[key] = key === 'execution' ? { status: { toString: null } } : { model: { toString: null } };
+  const report = synthesizeReport({ status: 'complete', reviewMode: 'architect', findings: [valid], engines: [engine] });
+  expect(report.json.findings).toEqual([valid]); expect(report.json.status).toBe('partial');
+  expect(report.json.diagnostics.some(d => d.code === 'INVALID_REPORT_ENGINE')).toBe(true);
+});
