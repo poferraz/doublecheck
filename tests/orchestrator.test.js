@@ -13,6 +13,7 @@ const defaultAlibabaRunner = (target, options = {}) => nativeAlibabaRunner(targe
 });
 function runner(payload, fail = false, capture = () => {}) {
   return (cmd, args) => {
+    if (args[0] === 'session') return '[]';
     if (args[0] === 'version') return 'open-code-review v1.13.3 (375f64c)';
     capture(cmd, args);
     if (payload) fs.writeFileSync(args[args.indexOf('-o') + 1], JSON.stringify(payload));
@@ -81,4 +82,40 @@ it('direct native library calls refuse ambient provider selection before launchi
   let calls = 0;
   const result = await nativeAlibabaRunner('.', { model: 'test-local', readOcrConfig: () => ({ provider: 'remote' }), execFileSync: () => { calls++; return ''; } });
   expect(result.status).toBe('failed'); expect(calls).toBe(0);
+});
+
+it('classifies timeouts and preserves requested context before output exists', async () => {
+  const result = await defaultAlibabaRunner('.', { timeout: 900000, execFileSync: (_cmd, args, opts) => {
+    if (args[0] === 'version') return 'open-code-review v1.13.3';
+    if (args[0] === 'session') return '[]';
+    expect(opts.timeout).toBe(900000);
+    throw Object.assign(Error('secret-marker'), { code: 'ETIMEDOUT' });
+  } });
+  expect(result.status).toBe('failed');
+  expect(result.execution).toMatchObject({ status: 'timed_out', timeoutMs: 900000 });
+  expect(result.requestedInference).toMatchObject({ provider: 'ollama', model: 'test-local', endpoint: 'http://localhost:11434' });
+  expect(result.provenance.revision).toBe(resolveAuditTarget('.').revision);
+  expect(result.diagnostics.some(d => d.code === 'OCR_PROCESS_TIMEOUT')).toBe(true);
+  expect(JSON.stringify(result)).not.toContain('secret-marker');
+});
+it('preserves explicit native failure despite process errors or identity mismatch', async () => {
+  const raw = fixture('complete'); raw.status = 'failed'; raw.manifest.terminal_state = 'failed'; raw.manifest.run_failure = { code: 'FAIL' }; raw.llm.model = 'wrong';
+  const result = await defaultAlibabaRunner('.', { execFileSync: runner(raw, true) });
+  expect(result.status).toBe('failed');
+});
+it('automatically recovers owned saved comments after a timeout without certifying coverage', async () => {
+  const id = '12345678-1234-1234-1234-123456789abc';
+  const startTime = new Date().toISOString();
+  const result = await defaultAlibabaRunner('.', { execFileSync: (_cmd, args) => {
+    if (args[0] === 'version') return 'open-code-review v1.13.3';
+    if (args[0] === 'scan') throw Object.assign(Error('secret-marker'), { code: 'ETIMEDOUT', stderr: `[ocr] Session: ${id} (retry with: --resume ${id})\n` });
+    if (args[1] === 'list') return '[]';
+    if (args[1] === 'show') return JSON.stringify({ summary: { session_id: id, model: 'test-local', review_mode: 'full_scan', repo_dir: resolveAuditTarget('.').targetRoot, start_time: startTime, completed_files: 1, total_comments: 1 }, items: [{ type: 'done', file_path: 'src/a.js' }] });
+    return JSON.stringify([comment]);
+  } });
+  expect(result.status).toBe('partial'); expect(result.findings).toHaveLength(1);
+  expect(result.coverage.origin).toBe('unknown');
+  expect(result.execution).toMatchObject({ status: 'timed_out', sessionId: id, completedFiles: ['src/a.js'] });
+  expect(result.diagnostics.some(d => d.code === 'OCR_SESSION_RECOVERED')).toBe(true);
+  expect(JSON.stringify(result)).not.toContain('secret-marker');
 });

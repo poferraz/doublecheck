@@ -64,6 +64,15 @@ export function synthesizeReport(results = {}) {
     markdown += `- ${inline(engine.source)}: **${inline(engine.status)}**; reviewed: ${engine.coverage.reviewed?.length ?? 'unknown'}; coverage origin: ${inline(engine.coverage.origin)}\n`;
     const p = engine.provenance;
     markdown += `  Tool: ${inline(p.tool || 'unknown')} ${inline(p.version || '')}; mode: ${inline(p.mode)}; provider: ${inline(p.provider || 'unknown')}; model: ${inline(p.model || 'unknown')}; endpoint: ${inline(p.endpoint || 'unknown')}\n`;
+    if (engine.requestedInference) {
+      const requested = engine.requestedInference;
+      markdown += `  Requested provider: ${inline(requested.provider)}; model: ${inline(requested.model)}; endpoint: ${inline(requested.endpoint)} (requested routing, not proof of execution or locality)\n`;
+    }
+    if (engine.execution) {
+      const execution = engine.execution;
+      markdown += `  Execution: ${inline(execution.status)}; elapsed: ${inline(execution.elapsedMs)} ms; deadline: ${inline(execution.timeoutMs)} ms\n`;
+      if (execution.sessionId) markdown += `  Recovered session: ${inline(execution.sessionId)}; saved completed files: ${inline(execution.completedFiles?.length ?? 'unknown')} (coverage remains unknown)\n`;
+    }
   }
   for (const [title, records] of [['Unresolved Candidates', unresolved], ['Confirmed Priority 0', p0], ['Confirmed Priority 1', p1], ['Confirmed Priority 2', p2], ['Confirmed Unrated', unrated], ['Rejected Findings', rejected]]) {
     if (records.length) markdown += `\n## ${title}\n\n${records.map(renderFinding).join('\n')}`;

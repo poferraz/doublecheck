@@ -4,8 +4,14 @@ import path from 'node:path';
 import os from 'node:os';
 import { normalizeFindings, diagnostic } from './contracts.js';
 import { resolveInferencePolicy } from './inference-policy.js';
+import { recoverScanSession, snapshotSessionIds } from './ocr-session.js';
 import { emptyEngine, parseCoverage, constrainCompletion, validateCustomEngine } from './engine-result.js';
 
+export const DEFAULT_SCAN_TIMEOUT_MS = 1_200_000;
+export function validateScanTimeout(value = DEFAULT_SCAN_TIMEOUT_MS) {
+  if (!Number.isSafeInteger(value) || value <= 0 || value > 2_147_483_647) throw Error('Invalid scan timeout.');
+  return value;
+}
 export function resolveAuditTarget(targetPath = '.') {
   const resolved = fs.realpathSync(path.resolve(targetPath));
   const stat = fs.statSync(resolved);
@@ -23,21 +29,45 @@ function readJson(file) {
 export async function defaultAlibabaRunner(targetPath, options = {}) {
   const target = options.target || resolveAuditTarget(targetPath);
   const result = emptyEngine('architect', 'failed', null, target, 'native');
+  const timeout = validateScanTimeout(options.timeout);
+  result.execution = { status: 'not_started', timeoutMs: timeout, elapsedMs: 0, sessionId: null, completedFiles: null };
+  result.provenance.revision = target.revision;
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'doublecheck-'));
   const outputFile = path.join(tmp, 'output.json');
   const runner = options.execFileSync || execFileSync;
   try {
     const inference = await resolveInferencePolicy(options, { readOcrConfig: options.readOcrConfig });
+    result.requestedInference = inference;
     const versionText = runner('ocr', ['version'], { encoding: 'utf8', stdio: 'pipe', timeout: 3000 });
     result.provenance.version = String(versionText).match(/v(\d+\.\d+\.\d+)/)?.[1] ?? null;
     const args = ['scan', '--repo', target.targetRoot];
     if (target.selectedPath) args.push('--path', target.selectedPath);
     args.push('--format', 'json', '-o', outputFile, '--no-plan', '--concurrency', String(options.concurrency || 4));
     args.push('--model', inference.model, '--provider', inference.provider);
-    let processFailed = false;
-    try { runner('ocr', args, { stdio: 'pipe', encoding: 'utf8', timeout: options.timeout || 300000, maxBuffer: 1024 * 1024 }); }
-    catch { processFailed = true; result.diagnostics.push(diagnostic('OCR_PROCESS_FAILED', 'architect')); }
-    if (!fs.existsSync(outputFile)) { result.diagnostics.push(diagnostic('MISSING_OCR_OUTPUT', 'architect')); return result; }
+    const before = snapshotSessionIds(runner, target.targetRoot);
+    const startedAt = Date.now();
+    let processFailed = false; let failureStderr = '';
+    try {
+      runner('ocr', args, { stdio: 'pipe', encoding: 'utf8', timeout, maxBuffer: 1024 * 1024 });
+      result.execution.status = 'succeeded';
+    } catch (error) {
+      processFailed = true; failureStderr = error.stderr;
+      const timedOut = error.code === 'ETIMEDOUT';
+      result.execution.status = timedOut ? 'timed_out' : 'failed';
+      result.diagnostics.push(diagnostic(timedOut ? 'OCR_PROCESS_TIMEOUT' : 'OCR_PROCESS_FAILED', 'architect'));
+    }
+    const finishedAt = Date.now(); result.execution.elapsedMs = finishedAt - startedAt;
+    if (!fs.existsSync(outputFile)) {
+      result.diagnostics.push(diagnostic('MISSING_OCR_OUTPUT', 'architect'));
+      const recovered = recoverScanSession({ runner, target, model: inference.model, before, stderr: failureStderr, startedAt, finishedAt });
+      if (recovered) {
+        result.findings = recovered.findings; result.status = 'partial';
+        Object.assign(result.execution, { sessionId: recovered.sessionId, completedFiles: recovered.completedFiles });
+        result.provenance.model = inference.model;
+        result.diagnostics.push(diagnostic('OCR_SESSION_RECOVERED', 'architect'), diagnostic('UNKNOWN_NATIVE_COVERAGE', 'architect'));
+      }
+      return result;
+    }
     const raw = readJson(outputFile);
     const payload = Array.isArray(raw) ? raw : raw?.comments;
     const normalized = normalizeFindings('architect', payload, target);
@@ -46,7 +76,7 @@ export async function defaultAlibabaRunner(targetPath, options = {}) {
     result.status = ['complete', 'partial', 'failed', 'skipped'].includes(raw.status) ? raw.status : 'partial';
     if (raw.manifest?.schema_version === 'ocr.run-manifest/v1') {
       result.coverage = parseCoverage(raw.manifest.coverage, target.targetRoot, true);
-      if (raw.manifest.terminal_state !== raw.status) result.status = 'partial';
+      if (raw.manifest.terminal_state !== raw.status && result.status !== 'failed') result.status = 'partial';
       if (raw.manifest.run_failure) result.status = 'failed';
     }
     result.provenance.revision = target.revision;
@@ -58,9 +88,10 @@ export async function defaultAlibabaRunner(targetPath, options = {}) {
       if (result.status !== 'failed') result.status = 'partial';
       result.diagnostics.push(diagnostic('OCR_PARTIAL_RESULT', 'architect'));
     }
-    if (processFailed) result.status = result.findings.length ? 'partial' : 'failed';
+    if (processFailed && result.status !== 'failed') result.status = result.findings.length ? 'partial' : 'failed';
     if (result.provenance.provider !== inference.provider || result.provenance.model !== inference.model) {
-      result.status = 'partial'; result.diagnostics.push(diagnostic('INFERENCE_IDENTITY_MISMATCH', 'architect'));
+      if (result.status !== 'failed') result.status = 'partial';
+      result.diagnostics.push(diagnostic('INFERENCE_IDENTITY_MISMATCH', 'architect'));
     }
     return constrainCompletion(result);
   } catch { result.diagnostics.push(diagnostic('INVALID_OCR_RESULT', 'architect')); result.status = 'failed'; return result; }

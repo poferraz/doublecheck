@@ -40,3 +40,14 @@ it('reports cannot replace source targets or imported finding inputs', async () 
   expect(doctor).not.toHaveBeenCalled();
   expect(fs.readFileSync(source, 'utf8')).toBe('source content'); expect(fs.readFileSync(findings, 'utf8')).toBe('[]');
 }));
+
+it('validates and forwards the overall scan deadline in milliseconds', async () => withTempDir(async tmp => {
+  expect(parseCliArgs([]).timeout).toBe(1_200_000);
+  expect(parseCliArgs(['--scan-timeout', '60']).timeout).toBe(60_000);
+  for (const value of ['0', '-1', '1.5', 'NaN', 'Infinity', '2147484', '1e3']) expect(() => parseCliArgs(['--scan-timeout', value])).toThrow();
+  const audit = vi.fn(async () => ({ status: 'partial', findings: [], engines: [] }));
+  await runCli([tmp, '--scan-timeout', '60', '-o', path.join(tmp, 'r.md')], {
+    checkEnvironment: async () => ({ ok: true, activeModel: 'test', inference: {} }), runDualAudit: audit
+  });
+  expect(audit.mock.calls[0][1].timeout).toBe(60_000);
+}));

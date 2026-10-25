@@ -45,3 +45,9 @@ it('retains rejected reasons and unresolved validation requirements', () => {
   expect(report.json.unresolved[0].verification.blockers).toEqual(['Runtime unknown']);
   expect(report.markdown).toContain('Guard prevents access');
 });
+it('shows requested routing and recovered execution context separately from reported identity', () => {
+  const report = synthesizeReport({ status: 'partial', reviewMode: 'architect', findings: [], engines: [{ source: 'architect', status: 'partial', coverage: { origin: 'unknown', reviewed: null }, provenance: { provider: null, model: null }, requestedInference: { provider: 'ollama', model: 'test-local', endpoint: 'http://localhost:11434' }, execution: { status: 'timed_out', timeoutMs: 60000, elapsedMs: 60001, sessionId: 'fixture-session', completedFiles: ['src/a.js'] } }] });
+  expect(report.markdown).toContain('timed\\_out');
+  expect(report.markdown).toContain('Requested provider: ollama');
+  expect(report.markdown).toContain('fixture\\-session');
+});
