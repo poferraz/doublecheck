@@ -34,6 +34,17 @@ if [[ $# -lt 1 ]]; then
 fi
 
 PLATFORM="$1"
+shift
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --output-dir)
+            [[ $# -ge 2 && -n "$2" ]] || usage
+            OUTPUT_DIR="$2"
+            shift 2
+            ;;
+        *) usage ;;
+    esac
+done
 
 stream_references() {
     for ref in "$SKILL_DIR"/references/*.md; do

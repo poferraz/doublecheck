@@ -1,7 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { checkEnvironment, selectBestModel } from '../src/doctor.js';
 
 describe('Doctor Pre-flight Environment Checks', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -26,14 +28,14 @@ describe('Doctor Pre-flight Environment Checks', () => {
   });
 
   it('returns ok: true and model details when Ollama is running and responsive', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
         models: [
           { name: 'deepseek-v4.1-flash:1017-cloud' }
         ]
       })
-    });
+    }));
 
     const result = await checkEnvironment({
       ollamaEndpoint: 'http://localhost:11434',
@@ -47,7 +49,7 @@ describe('Doctor Pre-flight Environment Checks', () => {
   });
 
   it('returns ok: false and helpful setup instructions when Ollama is offline', async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')));
 
     const result = await checkEnvironment({
       ollamaEndpoint: 'http://localhost:11434',

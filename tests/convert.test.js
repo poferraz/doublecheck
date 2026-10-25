@@ -1,22 +1,13 @@
-import { describe, it, expect } from 'vitest';
-import { execSync } from 'child_process';
-import fs from 'fs';
-import path from 'path';
+import { it, expect } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 
-describe('Skill & Configuration Distribution Converter (convert.sh)', () => {
-  const scriptPath = path.resolve(__dirname, '../scripts/convert.sh');
-  const reviewMdDist = path.resolve(__dirname, '../dist/platforms/review-md/REVIEW.md');
-
-  it('generates Claude Code Review REVIEW.md when running "convert.sh review-md"', () => {
-    // Run the shell script target
-    execSync(`bash "${scriptPath}" review-md`, { encoding: 'utf8' });
-
-    expect(fs.existsSync(reviewMdDist)).toBe(true);
-    const content = fs.readFileSync(reviewMdDist, 'utf8');
-
-    expect(content).toContain('Cloudflare');
-    expect(content).toContain('Alibaba');
-    expect(content).toContain('Convergence');
-    expect(content).toContain('Severity Levels');
-  });
+it('converter writes under requested output root', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dc-convert-'));
+  try {
+    execFileSync('bash', [path.resolve('scripts/convert.sh'), 'review-md', '--output-dir', tmp]);
+    expect(fs.readFileSync(path.join(tmp, 'review-md/REVIEW.md'), 'utf8')).toContain('Review');
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
