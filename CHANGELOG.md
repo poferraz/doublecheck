@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Changed
+- Report schema v2 preserves verification states, canonical findings, exact location correlations, and per-engine coverage/provenance.
+- Incomplete reviews and blocking unresolved candidates exit 2; complete confirmed high/critical reviews exit 1. Correlation no longer escalates severity or implies calibrated confidence.
+- Native OCR 1.13.3 full-file scan coverage remains unknown/partial; the adversary adapter is explicitly import-only.
+- Inference requires matching named custom-provider configuration and explicit remote opt-in. Empty models/missing OCR fail preflight.
+- Strict CLI arguments, distinct staged report outputs, root REVIEW.md initialization with overwrite protection, shared generic template, and repaired export links.
+- Supported Vitest CI runtimes, packaged Node 20 consumer checks, offline CLI integration, and separate manual native OCR conformance workflow.
+
+### Migration for proposed 0.2.0
+- Consume `schemaVersion: doublecheck/report/v2`; use `correlations.length` instead of removed convergence-defect counters.
+- Custom runners return EngineResult objects; raw-array runners remain partial. Native OCR comments remain candidates until verified.
+- `normalizePath` is display-only; use root-aware canonicalization for identity. Deprecated source arrays contain normalized records.
+- Published package metadata remains 0.1.1 pending an explicit release.
+
 ## [0.1.1] - 2026-10-24
 
 ### Added

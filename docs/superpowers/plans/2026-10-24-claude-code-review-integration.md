@@ -1,5 +1,6 @@
 # Claude Code Review & Multi-Layer Defense Implementation Plan
 
+> Historical document: runtime, confidence, privacy, CLI, and review-file guidance may be superseded. See the current README.md and the 2026-10-24 review-reliability remediation plan. Original approvals/checklists below are preserved as history.
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Integrate Claude Code Review as a continuous cloud security layer for `doublecheck`, harden internal execution boundaries (command injection, temp files, path traversal), provide a `REVIEW.md` generation engine for users, and establish a dual-tier defense-in-depth model across the entire repository.

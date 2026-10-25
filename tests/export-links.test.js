@@ -17,6 +17,8 @@ it('every exported local Markdown file or explicit anchor link resolves', async 
     }
   }
   expect(count).toBeGreaterThan(10);
+  const sourceBody = fs.readFileSync('skills/doublecheck/SKILL.md', 'utf8').replace(/^---\n[\s\S]*?\n---\n/, '');
+  expect(fs.readFileSync(path.join(tmp, 'cursor/rules/doublecheck.md'), 'utf8')).toBe(sourceBody.replace(/\]\(references\/([a-z-]+)\.md\)/g, '](./doublecheck-$1.md)'));
   expect(fs.existsSync(path.join(tmp, 'claude/references/attack-classes.md'))).toBe(true);
   expect(fs.readFileSync(path.join(tmp, 'claude/SKILL.md'), 'utf8')).not.toContain('# Reference Manuals');
 }));

@@ -13,4 +13,5 @@ Briefly describe your changes and why they are needed.
 - [ ] Temporary files use `fs.mkdtempSync` with cleanup in `finally` blocks.
 - [ ] Unit tests covering the changes have been added in `tests/`.
 - [ ] All tests pass cleanly (`npm test`).
-- [ ] Pre-flight doctor check passes (`./bin/doublecheck.js --doctor-only`).
+- [ ] Offline integration and packaged consumer smoke pass; native/provider checks are reported separately.
+- [ ] Unknown coverage, unresolved candidates, and inference routing remain explicit.

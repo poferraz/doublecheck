@@ -1,5 +1,6 @@
 # Design Specification: `doublecheck`
 
+> Historical document: runtime, confidence, privacy, CLI, and review-file guidance may be superseded. See the current README.md and the 2026-10-24 review-reliability remediation plan. Original approvals/checklists below are preserved as history.
 **Project Name:** `doublecheck`  
 **Description:** Multi-Perspective Code Security & Architecture Review for Humans and AI Agents.  
 **Date:** 2026-10-23  

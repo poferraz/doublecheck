@@ -56,11 +56,11 @@ stream_references() {
 
 stream_skill_body() {
     local skill_file="$SKILL_DIR/SKILL.md"
-    if head -n 1 "$skill_file" | grep -q "^---$"; then
-        sed '1,/^---$/d' "$skill_file" | sed '1,/^---$/d'
-    else
-        cat "$skill_file"
-    fi
+    awk '
+        NR == 1 && $0 == "---" { metadata = 1; next }
+        metadata && $0 == "---" { metadata = 0; next }
+        !metadata { print }
+    ' "$skill_file"
 }
 
 build_consolidated() {

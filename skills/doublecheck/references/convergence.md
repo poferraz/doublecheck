@@ -1,31 +1,17 @@
-# Dual-Audit Convergence & Triage Rubric
+# Location Correlation and Triage
 
-When evaluating an audit, findings are assigned to three priority tiers based on the principle of cross-perspective validation:
+Location overlap is an informational link between findings. It does not prove a shared root cause, independent verification, exploitability, or higher severity.
 
----
+Use exact canonical target-relative paths and overlapping known positive line ranges. Missing lines, suffix matches, adjacent locations, or identical titles are insufficient. Preserve every distinct concern; collapse only exact content duplicates. Inspect all trace locations, including downstream sinks.
 
-## Priority 0 (Immediate Remediation / Blocker)
-A finding is classified as **Priority 0** if:
-1. **Convergence:** Both the Cloudflare Adversary Lens and the Alibaba Architect Lens independently identify the same file and line/scope as defective or vulnerable.
-2. **Exploitable High-Impact:** Verified exploit path with an active affected principal (e.g., SSRF open proxy, cleartext credential storage, DOM-based XSS, or prompt injection firewall bypass).
-3. **Runtime Crash on Boundary Data:** Unhandled exceptions that break core execution flow (e.g., missing default threshold merging causing `TypeError` on feature indexing).
+Keep verdict and severity separate:
 
-**SLA:** Must be addressed before production deployment or release tag.
+| Verdict | Treatment |
+| --- | --- |
+| confirmed | Rank by impact-based severity: critical → P0; high → P1; medium/low/informational → P2. Missing severity stays Unrated. |
+| needs_validation | Keep as a candidate with its reported severity and exact unresolved fact. Do not count it as a confirmed defect. |
+| rejected | Retain separately with the rejection evidence; never resurrect it because another reviewer flags that line. |
 
----
+Two LOW findings remain LOW after overlap. Even two CRITICAL reports require evidence that each is valid; agreement supplies no calibrated percentage confidence. Native OCR output alone is not an independent exploit reproduction.
 
-## Priority 1 (High Quality & Security Hygiene)
-A finding is classified as **Priority 1** if:
-1. **Single-Lens High Severity:** Identified by one lens with High severity (e.g., API key in URL query parameter, integer truncation regex, unhandled async rejection in debounced handlers, homoglyph injection evasion).
-2. **Subtle Concurrency & State Traps:** Missing abort signal handling, unhandled stream termination, or state mutations outside transactional boundaries.
-
-**SLA:** Scheduled for remediation in immediate sprint.
-
----
-
-## Priority 2 (Defensive Hardening)
-A finding is classified as **Priority 2** if:
-1. **Over-Permissive Configurations:** Wildcard permissions in tool settings (e.g. `chmod *`).
-2. **Code Maintainability & Defensive Invariants:** Mutable exported arrays that should be frozen, dead branches in tokenizer regexes, non-portable OS calls.
-
-**SLA:** Addressed during routine maintenance or refactoring passes.
+Unknown or failed coverage remains explicit. A candidate's urgency may justify blocking a merge while validation is pending, but urgency does not change its verdict. Exit 2 preserves that distinction for high/critical/unrated candidates; it must not be described as a clean review.
