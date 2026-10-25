@@ -1,0 +1,35 @@
+{
+  "status": "complete",
+  "llm": {
+    "provider": "ollama",
+    "model": "test-local"
+  },
+  "comments": [
+    {
+      "path": "src/a.js",
+      "start_line": 10,
+      "end_line": 10,
+      "content": "Synthetic concern",
+      "severity": "low"
+    }
+  ],
+  "manifest": {
+    "terminal_state": "complete",
+    "coverage": {
+      "selected": [
+        {
+          "path": "src/a.js"
+        }
+      ],
+      "failed": [],
+      "completed": [
+        {
+          "path": "src/a.js"
+        }
+      ],
+      "reused": [],
+      "waived": []
+    },
+    "schema_version": "ocr.run-manifest/v1"
+  }
+}

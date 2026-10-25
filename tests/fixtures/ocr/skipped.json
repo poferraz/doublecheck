@@ -1,0 +1,28 @@
+{
+  "status": "skipped",
+  "llm": {
+    "provider": "ollama",
+    "model": "test-local"
+  },
+  "comments": [],
+  "manifest": {
+    "terminal_state": "skipped",
+    "coverage": {
+      "selected": [
+        {
+          "path": "src/a.js"
+        }
+      ],
+      "failed": [
+        {
+          "path": "src/a.js",
+          "classification": "budget"
+        }
+      ],
+      "completed": [],
+      "reused": [],
+      "waived": []
+    },
+    "schema_version": "ocr.run-manifest/v1"
+  }
+}
