@@ -1,0 +1,23 @@
+name: Native OCR contract
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+      - run: npm install -g @alibaba-group/open-code-review@1.13.3
+      - name: Provision synthetic provider in disposable runner account
+        run: |
+          ocr config set provider doublecheck-contract
+          ocr config set custom_providers.doublecheck-contract.url http://127.0.0.1:18765/v1
+          ocr config set custom_providers.doublecheck-contract.protocol openai
+          ocr config set custom_providers.doublecheck-contract.model test-local
+          ocr config set custom_providers.doublecheck-contract.api_key fixture-placeholder
+      - run: npm run test:ocr-contract

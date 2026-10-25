@@ -16,7 +16,10 @@
   ],
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:integration": "vitest run tests/cli.integration.test.js",
+    "smoke:consumer": "node scripts/smoke-consumer.mjs",
+    "test:ocr-contract": "node scripts/verify-ocr-contract.mjs"
   },
   "repository": {
     "type": "git",
