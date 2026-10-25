@@ -62,7 +62,7 @@ fi
 stream_references() {
     for ref in "$SKILL_DIR"/references/*.md; do
         printf '<a id="doublecheck-%s"></a>\n\n' "$(basename "$ref" .md)"
-        cat "$ref" | sed -E 's@\]\(references/([a-z-]+)\.md\)@](#doublecheck-\1)@g'
+        cat "$ref" | sed -E 's@\]\(references/([A-Za-z0-9_-]+)\.md\)@](#doublecheck-\1)@g'
         printf "\n\n---\n\n"
     done
 }
@@ -77,7 +77,7 @@ stream_skill_body() {
 }
 
 build_consolidated() {
-    stream_skill_body | sed -E 's@\]\(references/([a-z-]+)\.md\)@](#doublecheck-\1)@g'
+    stream_skill_body | sed -E 's@\]\(references/([A-Za-z0-9_-]+)\.md\)@](#doublecheck-\1)@g'
     printf "\n---\n\n# Reference Manuals\n\n"
     stream_references
 }
@@ -104,9 +104,9 @@ convert_cursor() {
     local out="$OUTPUT_DIR/cursor/rules"
     mkdir -p "$out"
     echo "Converting for Cursor..."
-    stream_skill_body | sed -E 's@\]\(references/([a-z-]+)\.md\)@](./doublecheck-\1.md)@g' > "$out/doublecheck.md"
+    stream_skill_body | sed -E 's@\]\(references/([A-Za-z0-9_-]+)\.md\)@](./doublecheck-\1.md)@g' > "$out/doublecheck.md"
     for ref in "$SKILL_DIR"/references/*.md; do
-        sed -E 's@\]\(references/([a-z-]+)\.md\)@](./doublecheck-\1.md)@g' "$ref" > "$out/doublecheck-$(basename "$ref")"
+        sed -E 's@\]\(references/([A-Za-z0-9_-]+)\.md\)@](./doublecheck-\1.md)@g' "$ref" > "$out/doublecheck-$(basename "$ref")"
     done
     echo "Output: $out/"
     echo "Install: Copy contents of $out/ into your project's .cursor/rules/"

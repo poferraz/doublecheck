@@ -43,3 +43,18 @@ it('preserves existing output if a referenced manual is missing, while review-md
     expect(fs.readFileSync(path.join(out, 'review-md/REVIEW.md'), 'utf8')).toBe(fs.readFileSync('src/templates/REVIEW.md', 'utf8'));
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
+it('rewrites every accepted manual filename consistently in consolidated and Cursor exports', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dc-manual-names-'));
+  try {
+    const script = copyConverterProject(tmp); const name = 'owasp-top10_ABC';
+    fs.appendFileSync(path.join(tmp, 'skills/doublecheck/SKILL.md'), `\n[Additional manual](references/${name}.md)\n`);
+    fs.writeFileSync(path.join(tmp, `skills/doublecheck/references/${name}.md`), 'Additional reference content');
+    const out = path.join(tmp, 'out'); execFileSync('bash', [script, 'all', '--output-dir', out]);
+    const consolidated = fs.readFileSync(path.join(out, 'codex/AGENTS.md'), 'utf8');
+    expect(consolidated).toContain(`](#doublecheck-${name})`);
+    expect(consolidated).toContain(`id="doublecheck-${name}"`);
+    const cursor = fs.readFileSync(path.join(out, 'cursor/rules/doublecheck.md'), 'utf8');
+    expect(cursor).toContain(`](./doublecheck-${name}.md)`);
+    expect(fs.existsSync(path.join(out, `cursor/rules/doublecheck-${name}.md`))).toBe(true);
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});

@@ -2,13 +2,13 @@
   "reviewDate": "2026-10-24",
   "sourceReviewCommit": "65b3b63d275e7e2ede0b75d78c46c28c077b8e44",
   "sourceReportSchema": "doublecheck/report/v2",
-  "note": "Separate human/agent triage record; original model findings/verdicts are preserved. Reviewed grades reflect demonstrated impact, not the original high labels. Only six high candidates received full regression-backed repair verification; other dispositions state limits explicitly. No model precision/recall claim.",
+  "note": "Separate human/agent triage record; original model findings/verdicts are preserved. Reviewed grades reflect demonstrated impact, not the original high labels. Six high candidates and one additional medium candidate received full regression-backed repair verification; other dispositions state limits explicitly. No model precision/recall claim.",
   "counts": {
-    "deferred": 43,
+    "deferred": 42,
     "needs_validation": 27,
     "rejected_as_reported": 9,
     "addressed_related_case": 6,
-    "confirmed_fixed": 6,
+    "confirmed_fixed": 7,
     "partially_rejected": 2
   },
   "entries": [
@@ -617,8 +617,10 @@
         }
       ],
       "claim": "The link-rewrite pattern only matches names made of `[a-z-]`, while the `printf` anchor id and the Cursor file naming use the actual basename. A reference file containing a digit or underscore (e.g. `references/owasp-top10.md`) would be exported but its links would be left as `references/...md`, silently producing broken links in the consolidated outputs. Use a filename-class that matches real filenames, e.g. `([A-Za-z0-9_-]+)` \u2014 the same pattern is duplicated in `stream_references`/`convert_cursor` and should be shared in one variable.",
-      "disposition": "deferred",
-      "evidence": "Lower-priority API/style/configuration/compatibility suggestion. No failing supported user flow established in this pass; retain for separate evaluation."
+      "disposition": "confirmed_fixed",
+      "evidence": "The affected-subtree native rerun repeated this case as high. A copied fixture with owasp-top10_ABC.md passed validation but retained broken links. All rewrite patterns now accept the same filename class as validation; consolidated anchors and Cursor files resolve.",
+      "reviewedSeverity": "medium",
+      "regression": "tests/convert.test.js"
     },
     {
       "id": "architect:71e9c208d5ed29a353a5cf6b0fe469fc38c7e419d55334ac32fed22451fd0cce",
