@@ -30,15 +30,7 @@ export function validateCustomEngine(source, raw, target) {
     return { ...emptyEngine(source, 'partial', 'UNKNOWN_IMPORT_COVERAGE', target), findings: n.findings, diagnostics: [...n.diagnostics, diagnostic('UNKNOWN_IMPORT_COVERAGE', source)] };
   }
   if (!raw || raw.source !== source || !['complete', 'partial', 'skipped', 'failed'].includes(raw.status) || !Array.isArray(raw.findings) || !raw.provenance || !raw.coverage) throw new FindingValidationError();
-  const findings = raw.findings.map(f => {
-    if (!f || f.source !== source || !['confirmed', 'needs_validation', 'rejected'].includes(f.verdict) || !['critical', 'high', 'medium', 'low', 'informational', null].includes(f.severity) || typeof f.title !== 'string' || typeof f.description !== 'string' || !Array.isArray(f.locations) || !f.locations.length || !Array.isArray(f.evidence) || typeof f.remediation !== 'string') throw new FindingValidationError();
-    for (const l of [...f.locations, ...f.evidence]) {
-      if (canonicalizeFindingPath(l.file, target.targetRoot) !== l.file || (l.startLine !== null && (!Number.isSafeInteger(l.startLine) || l.startLine < 1)) || (l.startLine === null ? l.endLine !== null : !Number.isSafeInteger(l.endLine) || l.endLine < l.startLine)) throw new FindingValidationError();
-    }
-    const { id, ...identity } = f;
-    if (id !== `${source}:${createHash('sha256').update(stableSerialize(identity)).digest('hex')}`) throw new FindingValidationError();
-    return structuredClone(f);
-  });
+  const findings = raw.findings.map(f => validateCanonicalFinding(source, f, target));
   const result = { ...emptyEngine(source, raw.status, null, target), findings, coverage: parseCoverage(raw.coverage, target.targetRoot), provenance: { ...emptyEngine(source, raw.status, null, target).provenance } };
   for (const key of ['tool', 'version', 'mode', 'targetRoot', 'revision', 'provider', 'endpoint', 'model']) {
     const v = raw.provenance[key]; if (v != null && typeof v !== 'string') throw new FindingValidationError();
@@ -49,4 +41,19 @@ export function validateCustomEngine(source, raw, target) {
     result.status = 'partial'; result.diagnostics.push(diagnostic('TARGET_MISMATCH', source));
   }
   return constrainCompletion(result);
+}
+
+export function validateCanonicalFinding(source, f, target) {
+    if (!['architect', 'adversary'].includes(source) || !f || f.source !== source || !['confirmed', 'needs_validation', 'rejected'].includes(f.verdict) || !['critical', 'high', 'medium', 'low', 'informational', null].includes(f.severity) || typeof f.title !== 'string' || typeof f.description !== 'string' || !Array.isArray(f.locations) || !f.locations.length || !Array.isArray(f.evidence) || typeof f.remediation !== 'string') throw new FindingValidationError();
+    if (f.evidence.some(e => typeof e?.description !== 'string')) throw new FindingValidationError();
+    if (f.verification != null) {
+      const v = f.verification;
+      if (typeof v !== 'object' || Array.isArray(v) || v.rejectionReason != null && typeof v.rejectionReason !== 'string' || !Array.isArray(v.blockers) || v.blockers.some(b => typeof b !== 'string') || v.validationPlan != null && (typeof v.validationPlan !== 'object' || Array.isArray(v.validationPlan) || Object.values(v.validationPlan).some(p => typeof p !== 'string'))) throw new FindingValidationError();
+    }
+    for (const l of [...f.locations, ...f.evidence]) {
+      if (!l || typeof l !== 'object' || canonicalizeFindingPath(l.file, target.targetRoot) !== l.file || (l.startLine !== null && (!Number.isSafeInteger(l.startLine) || l.startLine < 1)) || (l.startLine === null ? l.endLine !== null : !Number.isSafeInteger(l.endLine) || l.endLine < l.startLine)) throw new FindingValidationError();
+    }
+    const { id, ...identity } = f;
+    if (id !== `${source}:${createHash('sha256').update(stableSerialize(identity)).digest('hex')}`) throw new FindingValidationError();
+    return structuredClone(f);
 }

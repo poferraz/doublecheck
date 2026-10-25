@@ -29,7 +29,7 @@ function matchesSchema(value, schema) {
   if (schema.type === 'object') {
     if (!object(value)) return false;
     if (schema.required?.some(k => !Object.hasOwn(value, k))) return false;
-    return Object.entries(value).every(([k, v]) => schema.properties?.[k] ? matchesSchema(v, schema.properties[k]) : schema.additionalProperties !== false);
+    return Object.entries(value).every(([k, v]) => Object.hasOwn(schema.properties || {}, k) ? matchesSchema(v, schema.properties[k]) : schema.additionalProperties !== false);
   }
   if (schema.type === 'array') {
     if (!Array.isArray(value) || value.length < (schema.minItems || 0)) return false;

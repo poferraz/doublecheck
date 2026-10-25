@@ -1,6 +1,7 @@
 import { it, expect } from 'vitest';
 import fs from 'node:fs';
 import { synthesizeReport, normalizePath } from '../src/reporter.js';
+import { completeEngine } from './helpers/results.js';
 import { normalizeFindings } from '../src/contracts.js';
 const upstream = () => JSON.parse(fs.readFileSync('tests/fixtures/findings/cloudflare-confirmed.json'))[0];
 const normalize = records => normalizeFindings('adversary', records, { targetRoot: process.cwd() }).findings;
@@ -50,4 +51,17 @@ it('shows requested routing and recovered execution context separately from repo
   expect(report.markdown).toContain('timed\\_out');
   expect(report.markdown).toContain('Requested provider: ollama');
   expect(report.markdown).toContain('fixture\\-session');
+});
+
+it('diagnoses malformed canonical records while retaining valid siblings and preventing completion', () => {
+  const valid = normalize([upstream()])[0];
+  const report = synthesizeReport({ status: 'complete', reviewMode: 'architect', engines: [completeEngine()], findings: [null, {}, { ...valid, title: 'tampered identity' }, valid] });
+  expect(report.json.findings).toEqual([valid]);
+  expect(report.json.diagnostics.filter(d => d.code === 'INVALID_REPORT_FINDING')).toHaveLength(3);
+  expect(report.json.status).toBe('partial');
+});
+it('diagnoses malformed engine objects without crashing or claiming completion', () => {
+  const report = synthesizeReport({ status: 'complete', findings: [], engines: [null, { source: 'architect', status: 'complete' }] });
+  expect(report.json.status).toBe('partial');
+  expect(report.json.diagnostics.some(d => d.code === 'INVALID_REPORT_ENGINE')).toBe(true);
 });

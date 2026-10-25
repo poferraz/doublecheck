@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { isCompleteCoverage } from './engine-result.js';
+import { isCompleteCoverage, validateCanonicalFinding } from './engine-result.js';
 import { normalizeFindings, diagnostic } from './contracts.js';
 import { correlateFindings, deduplicateFindings } from './correlation.js';
 export function normalizePath(p = '') { return path.posix.normalize(p.replace(/\\/g, '/')); }
@@ -29,7 +29,15 @@ export function getReviewExitCode(report) {
   return report.p0?.length || report.p1?.length ? 1 : 0;
 }
 export function synthesizeReport(results = {}) {
-  const diagnostics = [...(results.engines || []).flatMap(e => e.diagnostics || [])];
+  const diagnostics = []; const engines = [];
+  const object = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+  for (const engine of Array.isArray(results.engines) ? results.engines : []) {
+    if (!object(engine) || !object(engine.coverage) || !object(engine.provenance)) {
+      diagnostics.push(diagnostic('INVALID_REPORT_ENGINE', 'report')); continue;
+    }
+    engines.push(engine);
+    if (Array.isArray(engine.diagnostics)) diagnostics.push(...engine.diagnostics.filter(d => object(d) && typeof d.code === 'string' && typeof d.source === 'string'));
+  }
   let input = results.findings;
   if (!Array.isArray(input)) {
     input = [];
@@ -40,7 +48,12 @@ export function synthesizeReport(results = {}) {
       } catch { diagnostics.push(diagnostic('INVALID_LEGACY_REPORT_INPUT', source)); }
     }
   }
-  const findings = deduplicateFindings(input);
+  const valid = [];
+  for (const [recordIndex, finding] of input.entries()) {
+    try { valid.push(validateCanonicalFinding(finding?.source, finding, { targetRoot: path.resolve(results.targetPath || '.') })); }
+    catch { diagnostics.push(diagnostic('INVALID_REPORT_FINDING', 'report', recordIndex)); }
+  }
+  const findings = deduplicateFindings(valid);
   const confirmed = findings.filter(f => f.verdict === 'confirmed');
   const p0 = confirmed.filter(f => f.severity === 'critical');
   const p1 = confirmed.filter(f => f.severity === 'high');
@@ -51,12 +64,14 @@ export function synthesizeReport(results = {}) {
   const correlations = correlateFindings(findings.filter(f => f.source === 'adversary'), findings.filter(f => f.source === 'architect'));
   const requiredSources = results.reviewMode === 'architect' ? ['architect'] : ['adversary', 'architect'];
   const hasCompleteEvidence = requiredSources.every(source => {
-    const engines = (results.engines || []).filter(e => e.source === source);
-    return engines.length === 1 && engines[0].status === 'complete' && isCompleteCoverage(engines[0].coverage);
+    const requested = engines.filter(e => e.source === source);
+    return requested.length === 1 && requested[0].status === 'complete' && isCompleteCoverage(requested[0].coverage);
   });
-  const status = results.status === 'complete' ? hasCompleteEvidence ? 'complete' : 'partial' : ['partial', 'failed'].includes(results.status) ? results.status : 'partial';
+  const invalidInput = diagnostics.some(d => ['INVALID_REPORT_FINDING', 'INVALID_REPORT_ENGINE', 'INVALID_FINDING', 'INVALID_LEGACY_REPORT_INPUT'].includes(d.code));
+  let status = results.status === 'failed' ? 'failed' : 'partial';
+  if (results.status === 'complete' && hasCompleteEvidence && !invalidInput) status = 'complete';
   const summary = { targetPath: results.targetPath || '.', timestamp: results.timestamp || new Date().toISOString(), p0Count: p0.length, p1Count: p1.length, p2Count: p2.length, unresolvedCount: unresolved.length, rejectedCount: rejected.length };
-  const json = { schemaVersion: 'doublecheck/report/v2', status, reviewMode: results.reviewMode || 'dual', summary, engines: results.engines || [], findings, correlations, p0, p1, p2, unrated, unresolved, rejected, diagnostics, errors: results.errors || [] };
+  const json = { schemaVersion: 'doublecheck/report/v2', status, reviewMode: results.reviewMode || 'dual', summary, engines, findings, correlations, p0, p1, p2, unrated, unresolved, rejected, diagnostics, errors: results.errors || [] };
   const label = status === 'complete' ? 'Review complete' : status === 'failed' ? 'Review failed' : 'Review incomplete';
   let markdown = `# \`doublecheck\` Audit Report\n\n**${label}**\n\nTarget: ${inline(summary.targetPath)}  \nScope: ${inline(json.reviewMode)}  \nTimestamp: ${inline(summary.timestamp)}\n\n`;
   markdown += `Confirmed P0: ${p0.length} · P1: ${p1.length} · P2: ${p2.length} · Unresolved: ${unresolved.length} · Rejected: ${rejected.length}\n\n## Engine Coverage\n\n`;

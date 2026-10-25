@@ -28,19 +28,19 @@
 **Files:** src/cli.js, src/orchestrator.js; create src/ocr-session.js; tests/cli.test.js, tests/orchestrator.test.js, new tests/ocr-session.test.js.
 **Interfaces:** --scan-timeout seconds -> options.timeout milliseconds. Native engines add requestedInference and execution metadata. Session helper snapshots IDs and recovers one new matching session via bounded OCR session commands, returning validated normalized comments and completed-file context. Canonical coverage remains unknown.
 
-- [ ] Add regressions for deadline defaults/validation/forwarding, timeout vs process failure, retained requested routing/revision, new-session recovery, absent/stale/ambiguous/wrong model/malformed metadata rejection, and native explicit-failure preservation.
-- [ ] Run focused tests; observe expected failures.
-- [ ] Implement timeout parser, execution metadata and safe diagnostics, bounded recovery helper, and integration in native adapter. Display execution/session context in Markdown.
-- [ ] Run focused and full tests; checkpoint locally.
+- [x] Add regressions for deadline defaults/validation/forwarding, timeout vs process failure, retained requested routing/revision, new-session recovery, absent/stale/ambiguous/wrong model/malformed metadata rejection, and native explicit-failure preservation.
+- [x] Run focused tests; observe expected failures.
+- [x] Implement timeout parser, execution metadata and safe diagnostics, bounded recovery helper, and integration in native adapter. Display execution/session context in Markdown.
+- [x] Run focused and full tests; checkpoint locally.
 
 ### Task 2: Validated finding/report boundaries
 
 **Files:** src/contracts.js, src/engine-result.js, src/reporter.js; tests/contracts.test.js, tests/reporter.test.js.
 **Interfaces:** validateCanonicalFinding(source, finding, target) shared between custom engine and report boundary. Invalid report records become diagnostics, retaining valid siblings and preventing complete status.
 
-- [ ] Add failing inherited-property and malformed canonical findings/engine regressions.
-- [ ] Observe RED, implement own-property lookup and shared validation, run GREEN plus full suite.
-- [ ] Document CLI deadline/recovery semantics in README and changelog, checkpoint locally.
+- [x] Add failing inherited-property and malformed canonical findings/engine regressions.
+- [x] Observe RED, implement own-property lookup and shared validation, run GREEN plus full suite.
+- [x] Document CLI deadline/recovery semantics in README and changelog, checkpoint locally.
 
 ### Task 3: Verification and live rerun
 

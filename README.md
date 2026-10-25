@@ -58,6 +58,10 @@ JSON uses `schemaVersion: "doublecheck/report/v2"` and contains `status`, `engin
 | `1` | Required coverage is complete and confirmed high/critical findings exist. |
 | `2` | Review is incomplete/failed, high/critical/unrated candidates remain unresolved, or invocation/preflight/output fails. Incompleteness takes precedence. |
 
+Native execution metadata distinguishes process success, timeout, and failure from review coverage. Requested provider/model/endpoint are retained separately from actual reported identity, including when output is missing. Timeouts emit `OCR_PROCESS_TIMEOUT` without exposing raw external error text.
+
+If OCR fails before writing its output, Doublecheck attempts saved-session recovery only when that process emitted an exact session marker. The ID must be absent from the pre-run inventory and its saved metadata must match this repo, model, and run time. A missing/conflicting marker, unavailable inventory, mismatching metadata, or malformed comments prevents recovery. A hard kill may therefore still require manual recovery with `ocr session` commands. Recovered comments remain candidates with unknown coverage and a partial result; recovery never converts a failed process into a clean review.
+
 Native OCR 1.13.3 full-file scans currently return **2** because coverage is unknown. This is expected and must not be swallowed in CI. A complete clean review means coverage completed; it is not a security certification.
 
 For `--format both`, `-o review.json`, `-o review.md`, and `-o review` produce `review.md` and `review.json`. Single-format output honors the requested filename. Writes are staged, but the pair is not a cross-file atomic transaction; a failure lists any artifact already saved. Symlink/directory destinations and detectable hardlink collisions are refused.
@@ -75,6 +79,7 @@ For `--format both`, `-o review.json`, `-o review.md`, and `-o review` produce `
 | `--findings file` | Import adversary JSON; missing files fail rather than become empty scans. |
 | `-f, --format markdown\|json\|both` | Output format; default Markdown. |
 | `-o, --output file` | Output path; defaults to `doublecheck-report.md` or `.json` for JSON-only. |
+| `--scan-timeout seconds` | Overall native process deadline; default `1200` (20 minutes). Positive integer, at most `2147483`. Library `options.timeout` uses milliseconds. |
 | `--doctor-only` | Check required engine configuration without running a review. |
 | `--init-review` | Initialize root `REVIEW.md` without inference. Alias: `--init-review-md`. |
 | `--force` | Replace custom root review instructions only with `--init-review`. |

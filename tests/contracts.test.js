@@ -39,3 +39,8 @@ it('handles missing lines and rejects reversed or nonnumeric ranges', () => {
   expect(result.findings[0].locations[0].startLine).toBeNull();
   expect(result.invalidRecordCount).toBe(2);
 });
+it.each(['constructor', 'toString', 'valueOf', '__proto__'])('rejects undeclared inherited property %s under the pinned schema', key => {
+  const record = JSON.parse(fs.readFileSync('tests/fixtures/findings/cloudflare-confirmed.json'))[0];
+  Object.defineProperty(record, key, { value: 'undeclared', enumerable: true });
+  expect(norm([record]).invalidRecordCount).toBe(1);
+});
