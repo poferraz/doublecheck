@@ -1,10 +1,11 @@
-import fs from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { checkEnvironment } from './doctor.js';
 import { runDualAudit, resolveAuditTarget } from './orchestrator.js';
 import { synthesizeReport, getReviewExitCode } from './reporter.js';
 import { resolveOutputPaths, writeReports } from './output.js';
+import { initializeReviewConfig } from './review-config.js';
+export { generateDefaultReviewMd } from './review-config.js';
 
 export function parseCliArgs(argv = []) {
   const { values, positionals } = parseArgs({ args: argv, strict: true, allowPositionals: true, options: {
@@ -42,8 +43,9 @@ export async function runCli(argv = process.argv.slice(2), dependencies = {}) {
     const config = parseCliArgs(argv);
     if (config.help) { printHelp(); return 0; }
     if (config.initReview) {
-      const dir = path.resolve(config.targetPath, '.github'); fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, 'REVIEW.md'), generateDefaultReviewMd()); return 0;
+      const result = initializeReviewConfig(path.resolve(config.targetPath), { force: config.force });
+      console.log(`Review instructions ${result.action}: ${terminal(result.path)}`);
+      return 0;
     }
     resolveAuditTarget(config.targetPath);
     const paths = config.doctorOnly ? null : resolveOutputPaths(config);
@@ -62,54 +64,3 @@ export async function runCli(argv = process.argv.slice(2), dependencies = {}) {
     return getReviewExitCode(report.json);
   } catch { console.error('Review failed: invalid arguments, target, configuration, or output. Run --help for usage.'); return 2; }
 }
-
-export function generateDefaultReviewMd() {
-  return `# Code Review Guidelines
-
-This document configures automated code review behaviors for Claude Code Review on pull requests, enforcing the \`doublecheck\` multi-perspective review standard.
-
----
-
-## Focus Areas
-
-1. **The Adversary Lens (Cloudflare Security Audit Standard):**
-   - AI & LLM Security: Detect prompt injection sinks, unvalidated tool parameter execution, homoglyph normalization bypasses.
-   - Client-Side Security: Unescaped \`innerHTML\`/\`outerHTML\`, DOM XSS sinks, sensitive token exposure in \`document.cookie\` or \`localStorage\`.
-   - Cloud & Deployment: Server-side request forgery (SSRF), unauthenticated proxies, wildcard CORS headers on credentialed endpoints.
-   - Cryptographic Integrity: Truncated digest hashes, nonces without domain separation, secrets in version control.
-
-2. **The Architect Lens (Alibaba Open Code Review Standard):**
-   - AST Correctness: Null dereferences, missing optional chaining on dynamic payloads, incomplete object spread defaults.
-   - Async & Concurrency: Unhandled promise rejections, missing fetch abort signals, unmanaged timer leaks, state race conditions.
-   - Type Coercion: Implicit boolean conversions, regex truncation on delimiter boundaries.
-
----
-
-## Convergence & Prioritization
-
-When an Adversary attack class and an Architect AST invariant both flag the exact same code location, declare a **Converged High-Confidence Defect (P0)**.
-
----
-
-## Severity Levels
-
-### Blocker (P0)
-- Converged defects: Any line where an architectural flaw directly enables an exploitable attack class.
-- Critical vulnerabilities: Arbitrary command execution, unrestricted SSRF, cleartext secret exposure, DOM XSS.
-
-### Major (P1)
-- Architectural bugs: Unhandled Promise rejections, missing error boundaries, potential memory leaks in production paths.
-- High-severity security issues: Missing rate limits on expensive operations, permissive CORS.
-
-### Minor (P2)
-- Code style, non-critical refactor suggestions, documentation omissions.
-
----
-
-## Ignored Paths
-- \`node_modules/**\`
-- \`dist/**\`
-- \`coverage/**\`
-`;
-}
-

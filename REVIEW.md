@@ -14,14 +14,14 @@ This document configures automated code review behaviors for Claude Code Review 
 2. **Temporary File & Filesystem Sandboxing:**
    - Never write to predictable filenames in `/tmp` (e.g., `/tmp/temp_${Date.now()}.json`).
    - Use `fs.mkdtempSync` with secure prefixes (`doublecheck-`) and ensure immediate removal in `finally` blocks.
-   - All input paths must be normalized with `normalizePath` to strip directory traversal sequences (`../`).
+   - Validate finding identity with root-aware canonicalization; display path normalization does not provide OS filesystem containment.
 
 3. **Inference Resilience & Asynchronous Safety:**
    - Network fetches to local Ollama endpoints must use `AbortSignal.timeout(...)`.
    - All async audit runners must be wrapped in `try/catch` blocks inside `orchestrator.js` so that one engine's failure does not crash the entire audit.
 
 4. **Zero Cloud Invariant:**
-   - The core engine must remain operable 100% locally via Ollama with zero mandatory external API keys or cloud tokens.
+   - Require explicit matching provider/endpoint routing and opt-in to remote inference. A loopback endpoint alone does not prove local model execution.
 
 ---
 

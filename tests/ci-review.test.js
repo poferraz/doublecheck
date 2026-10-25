@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 describe('Repository Review Configuration & CI Workflow', () => {
-  const reviewFile = path.resolve(__dirname, '../.github/REVIEW.md');
+  const reviewFile = path.resolve(__dirname, '../REVIEW.md');
   const ciFile = path.resolve(__dirname, '../.github/workflows/ci.yml');
 
   it('contains a valid .github/REVIEW.md file tailored for Claude Code Review', () => {

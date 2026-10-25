@@ -29,5 +29,5 @@ it('writes both formats and returns incomplete status rather than success', asyn
 }));
 it('initializes without inference', async () => withTempDir(async tmp => {
   expect(await runCli([tmp, '--init-review'])).toBe(0);
-  expect(fs.existsSync(path.join(tmp, '.github/REVIEW.md'))).toBe(true);
+  expect(fs.existsSync(path.join(tmp, 'REVIEW.md'))).toBe(true);
 }));

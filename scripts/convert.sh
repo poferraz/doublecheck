@@ -118,56 +118,9 @@ convert_review_md() {
     local out="$OUTPUT_DIR/review-md"
     mkdir -p "$out"
     echo "Converting for Claude Code Review (REVIEW.md)..."
-    cat <<'REVIEW_EOF' > "$out/REVIEW.md"
-# Code Review Guidelines
-
-This document configures automated code review behaviors for Claude Code Review on pull requests, enforcing the `doublecheck` multi-perspective review standard.
-
----
-
-## Focus Areas
-
-1. **The Adversary Lens (Cloudflare Security Audit Standard):**
-   - AI & LLM Security: Detect prompt injection sinks, unvalidated tool parameter execution, homoglyph normalization bypasses.
-   - Client-Side Security: Unescaped `innerHTML`/`outerHTML`, DOM XSS sinks, sensitive token exposure in `document.cookie` or `localStorage`.
-   - Cloud & Deployment: Server-side request forgery (SSRF), unauthenticated proxies, wildcard CORS headers on credentialed endpoints.
-   - Cryptographic Integrity: Truncated digest hashes, nonces without domain separation, secrets in version control.
-
-2. **The Architect Lens (Alibaba Open Code Review Standard):**
-   - AST Correctness: Null dereferences, missing optional chaining on dynamic payloads, incomplete object spread defaults.
-   - Async & Concurrency: Unhandled promise rejections, missing fetch abort signals, unmanaged timer leaks, state race conditions.
-   - Type Coercion: Implicit boolean conversions, regex truncation on delimiter boundaries.
-
----
-
-## Convergence & Prioritization
-
-When an Adversary attack class and an Architect AST invariant both flag the exact same code location, declare a **Converged High-Confidence Defect (P0)**.
-
----
-
-## Severity Levels
-
-### Blocker (P0)
-- Converged defects: Any line where an architectural flaw directly enables an exploitable attack class.
-- Critical vulnerabilities: Arbitrary command execution, unrestricted SSRF, cleartext secret exposure, DOM XSS.
-
-### Major (P1)
-- Architectural bugs: Unhandled Promise rejections, missing error boundaries, potential memory leaks in production paths.
-- High-severity security issues: Missing rate limits on expensive operations, permissive CORS.
-
-### Minor (P2)
-- Code style, non-critical refactor suggestions, documentation omissions.
-
----
-
-## Ignored Paths
-- `node_modules/**`
-- `dist/**`
-- `coverage/**`
-REVIEW_EOF
+    cat "$PROJECT_DIR/src/templates/REVIEW.md" > "$out/REVIEW.md"
     echo "Output: $out/REVIEW.md"
-    echo "Install: cp $out/REVIEW.md .github/REVIEW.md"
+    echo "Install: cp $out/REVIEW.md REVIEW.md"
 }
 
 case "$PLATFORM" in
