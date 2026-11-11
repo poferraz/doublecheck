@@ -21,13 +21,20 @@ export function createMockHandler({ maxRequests = 30, onRequest = () => {} } = {
   requests++;
   onRequest({ type: 'request', model: body.model });
   const base = { id: `fixture-${requests}`, object: 'chat.completion', created: 0, model: 'test-local' };
+  // OCR's per-file agent loops until a tool terminates the task. Its summary
+  // requests have no task_done tool and expect ordinary assistant text.
+  const finishTask = Array.isArray(body.tools) && body.tools.some(t => t?.type === 'function' && t.function?.name === 'task_done');
+  const call = { id: `call-${requests}`, type: 'function', function: { name: 'task_done', arguments: '{"state":"DONE"}' } };
+  const message = finishTask ? { role: 'assistant', tool_calls: [body.stream ? { index: 0, ...call } : call] } :
+    { role: 'assistant', content: 'No issues found.' };
+  const reason = finishTask ? 'tool_calls' : 'stop';
   if (body.stream) {
     res.setHeader('Content-Type', 'text/event-stream');
-    res.write(`data: ${JSON.stringify({ ...base, object: 'chat.completion.chunk', choices: [{ index: 0, delta: { role: 'assistant', content: 'No issues found.' }, finish_reason: null }] })}\n\n`);
-    res.end(`data: ${JSON.stringify({ ...base, object: 'chat.completion.chunk', choices: [{ index: 0, delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 4, total_tokens: 14 } })}\n\ndata: [DONE]\n\n`);
+    res.write(`data: ${JSON.stringify({ ...base, object: 'chat.completion.chunk', choices: [{ index: 0, delta: message, finish_reason: null }] })}\n\n`);
+    res.end(`data: ${JSON.stringify({ ...base, object: 'chat.completion.chunk', choices: [{ index: 0, delta: {}, finish_reason: reason }], usage: { prompt_tokens: 10, completion_tokens: 4, total_tokens: 14 } })}\n\ndata: [DONE]\n\n`);
   } else {
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ ...base, choices: [{ index: 0, message: { role: 'assistant', content: 'No issues found.' }, finish_reason: 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 4, total_tokens: 14 } }));
+    res.end(JSON.stringify({ ...base, choices: [{ index: 0, message, finish_reason: reason }], usage: { prompt_tokens: 10, completion_tokens: 4, total_tokens: 14 } }));
   }
   };
 }

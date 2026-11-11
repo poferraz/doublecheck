@@ -18,7 +18,14 @@ it('every exported local Markdown file or explicit anchor link resolves', async 
   }
   expect(count).toBeGreaterThan(10);
   const sourceBody = fs.readFileSync('skills/doublecheck/SKILL.md', 'utf8').replace(/^---\n[\s\S]*?\n---\n/, '');
-  expect(fs.readFileSync(path.join(tmp, 'cursor/rules/doublecheck.md'), 'utf8')).toBe(sourceBody.replace(/\]\(references\/([a-z-]+)\.md\)/g, '](./doublecheck-$1.md)'));
+  const cursorDirectory = path.join(tmp, 'cursor/rules');
+  const rules = fs.readdirSync(cursorDirectory).filter(p => p.endsWith('.mdc'));
+  expect(rules).toEqual(['doublecheck.mdc']);
+  const cursorRule = fs.readFileSync(path.join(cursorDirectory, rules[0]), 'utf8');
+  const frontMatter = cursorRule.match(/^---\n([\s\S]*?)\n---\n/);
+  expect(frontMatter?.[1]).toMatch(/^description: .+$/m);
+  expect(frontMatter?.[1]).toMatch(/^alwaysApply: false$/m);
+  expect(cursorRule.slice(frontMatter[0].length)).toBe(sourceBody.replace(/\]\(references\/([a-z-]+)\.md\)/g, '](./doublecheck-$1.md)'));
   expect(fs.existsSync(path.join(tmp, 'claude/references/attack-classes.md'))).toBe(true);
   expect(fs.readFileSync(path.join(tmp, 'claude/SKILL.md'), 'utf8')).not.toContain('# Reference Manuals');
 }));

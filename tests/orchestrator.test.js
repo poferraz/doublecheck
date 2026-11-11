@@ -8,6 +8,7 @@ import { completeEngine, comment } from './helpers/results.js';
 const fixture = name => JSON.parse(fs.readFileSync(`tests/fixtures/ocr/${name}.json`, 'utf8'));
 const defaultAlibabaRunner = (target, options = {}) => nativeAlibabaRunner(target, {
   model: 'test-local',
+  fetch: async () => ({ ok: true, json: async () => ({ models: [{ name: 'test-local' }] }) }),
   readOcrConfig: () => ({ custom_providers: { ollama: { protocol: 'openai', url: 'http://localhost:11434/v1', model: 'test-local', api_key: 'placeholder' } } }),
   ...options
 });
@@ -31,7 +32,7 @@ it('legacy import has unknown coverage', async () => withTempDir(async tmp => {
   expect(result.status).toBe('partial'); expect(result.coverage.reviewed).toBeNull();
   expect(result.provenance.model).toBeNull();
 }));
-it.each([['complete', 'complete'], ['partial', 'partial'], ['failed', 'failed'], ['skipped', 'skipped'], ['legacy', 'partial'], ['malformed', 'failed']])('retains native %s completion metadata', async (name, status) => {
+it.each([['complete', 'partial'], ['partial', 'partial'], ['failed', 'failed'], ['skipped', 'skipped'], ['legacy', 'partial'], ['malformed', 'failed']])('retains native %s completion metadata', async (name, status) => {
   const result = await defaultAlibabaRunner('.', { execFileSync: runner(fixture(name)) });
   expect(result.status).toBe(status);
 });
@@ -48,16 +49,17 @@ it('missing output fails and invalid sibling makes native result partial', async
   const result = await defaultAlibabaRunner('.', { execFileSync: runner(payload) });
   expect(result.status).toBe('partial'); expect(result.findings).toHaveLength(1);
 });
-it('aggregates required engine status without certifying raw arrays', async () => {
-  const ok = () => completeEngine();
-  expect((await runDualAudit('.', { alibabaRunner: ok })).status).toBe('partial');
-  expect((await runDualAudit('.', { reviewMode: 'architect', alibabaRunner: ok })).status).toBe('complete');
-  expect((await runDualAudit('.', { reviewMode: 'architect', alibabaRunner: () => [comment] })).status).toBe('partial');
+it('aggregates required engine status without certifying raw arrays', async () => withTempDir(async tmp => {
+  fs.mkdirSync(path.join(tmp, 'src')); fs.writeFileSync(path.join(tmp, 'src/cli.js'), '');
+  const ok = () => completeEngine('architect', [], tmp);
+  expect((await runDualAudit(tmp, { alibabaRunner: ok })).status).toBe('partial');
+  expect((await runDualAudit(tmp, { reviewMode: 'architect', alibabaRunner: ok })).status).toBe('complete');
+  expect((await runDualAudit(tmp, { reviewMode: 'architect', alibabaRunner: () => [comment] })).status).toBe('partial');
   const bad = () => { throw Error('secret-marker'); };
-  const result = await runDualAudit('.', { alibabaRunner: bad, cloudflareRunner: bad });
+  const result = await runDualAudit(tmp, { alibabaRunner: bad, cloudflareRunner: bad });
   expect(result.status).toBe('failed'); expect(result.errors).toHaveLength(2);
   expect(JSON.stringify(result.errors)).not.toContain('secret-marker');
-});
+}));
 it('revision mismatches and malformed custom results are incomplete', async () => {
   const engine = completeEngine(); engine.provenance.revision = 'different-revision';
   expect((await runDualAudit('.', { reviewMode: 'architect', alibabaRunner: () => engine })).status).toBe('partial');

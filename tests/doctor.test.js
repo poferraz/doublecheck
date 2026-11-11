@@ -17,6 +17,16 @@ it('missing required OCR makes readiness fail with visible diagnostics', async (
   expect(result.ok).toBe(false); expect(result.ocrAvailable).toBe(false);
   expect(result.errors.join('')).not.toContain('secret-marker');
 });
+it('disables OCR self-update during preflight and rejects unsupported version variants', async () => {
+  let autoUpdateFlag;
+  const probe = version => ready({ execFileSync: (_cmd, _args, options) => {
+    autoUpdateFlag = options.env?.OCR_NO_UPDATE;
+    return version;
+  } });
+  expect((await probe('open-code-review v1.13.3 (375f64c) darwin/arm64')).ocrAvailable).toBe(true);
+  expect(autoUpdateFlag).toBe('1');
+  expect((await probe('open-code-review v1.13.3-beta')).ocrAvailable).toBe(false);
+});
 it('connection failures and cloud model refusal never report ready', async () => {
   expect((await ready({ fetch: async () => { throw Error('secret-marker'); } })).ok).toBe(false);
   expect((await ready({ model: 'qwen:cloud', fetch: async () => ({ ok: true, json: async () => ({ models: [{ name: 'qwen:cloud' }] }) }) })).ok).toBe(false);
@@ -36,4 +46,12 @@ it('auto-selection respects cloud consent and skips unusable cloud candidates', 
   expect(result.ok).toBe(true); expect(result.activeModel).toBe(model);
   const cloudOnly = await ready({ model: '', readOcrConfig: () => data, fetch: async () => ({ ok: true, json: async () => ({ models: [{ name: 'qwen:cloud' }] }) }) });
   expect(cloudOnly.ok).toBe(false);
+});
+it('auto-selection skips a preferred model whose ordinary name hides remote backing', async () => {
+  const models = [{ name: 'qwen2.5-coder:32b', remote_host: 'https://other.invalid' }, { name: model }];
+  const data = config(); data.custom_providers.ollama.models = ['qwen2.5-coder:32b'];
+  const options = { model: '', readOcrConfig: () => data, fetch: async () => ({ ok: true, json: async () => ({ models }) }) };
+  expect((await ready(options)).activeModel).toBe(model);
+  expect((await ready({ ...options, model: 'qwen2.5-coder:32b' })).ok).toBe(false);
+  expect((await ready({ ...options, allowRemote: true })).activeModel).toBe('qwen2.5-coder:32b');
 });

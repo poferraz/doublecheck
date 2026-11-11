@@ -2,6 +2,9 @@ import { it, expect } from 'vitest';
 import path from 'node:path';
 import { normalizeFindings, canonicalizeFindingPath } from '../src/contracts.js';
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
+import { stableSerialize } from '../src/contracts.js';
+import { validateCanonicalFinding, validateCustomEngine } from '../src/engine-result.js';
 const root = path.resolve('/tmp/example');
 const legacy = (overrides = {}) => ({ title: 'Issue', file: 'src/a.js', line: 10, severity: 'HIGH', description: 'Unsafe boundary', ...overrides });
 const norm = records => normalizeFindings('adversary', records, { targetRoot: root });
@@ -43,4 +46,26 @@ it.each(['constructor', 'toString', 'valueOf', '__proto__'])('rejects undeclared
   const record = JSON.parse(fs.readFileSync('tests/fixtures/findings/cloudflare-confirmed.json'))[0];
   Object.defineProperty(record, key, { value: 'undeclared', enumerable: true });
   expect(norm([record]).invalidRecordCount).toBe(1);
+});
+
+function rehash(record, mutation) {
+  const { id, ...body } = structuredClone(record);
+  Object.assign(body, mutation);
+  return { ...body, id: body.source + ':' + createHash('sha256').update(stableSerialize(body)).digest('hex') };
+}
+it('does not certify an architect comment even with a recomputed content ID', () => {
+  const target = {targetRoot: root};
+  const candidate = normalizeFindings('architect', [{path:'a.js',content:'Unverified',severity:'high'}],target).findings[0];
+  const forged = rehash(candidate,{verdict:'confirmed'});
+  expect(() => validateCanonicalFinding('architect',forged,target)).toThrow();
+});
+it('applies the upstream proof contract to canonical adversary verdicts and preserves valid siblings', () => {
+  const target = {targetRoot:root,selectedPath:'',revision:null};
+  const confirmed = norm(JSON.parse(fs.readFileSync('tests/fixtures/findings/cloudflare-confirmed.json'))).findings[0];
+  const falseClaim = rehash(confirmed, {verification:{...confirmed.verification,execution:null}});
+  const inconsistent = rehash(confirmed, {severity:'critical'});
+  const engine = validateCustomEngine('adversary',{source:'adversary',status:'complete',coverage:{},provenance:{},findings:[falseClaim,inconsistent,confirmed]},target);
+  expect(engine.findings).toEqual([confirmed]);
+  expect(engine.status).toBe('partial');
+  expect(engine.diagnostics.filter(d=>d.code==='INVALID_FINDING').map(d=>d.recordIndex)).toEqual([0,1]);
 });

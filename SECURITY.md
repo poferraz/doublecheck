@@ -2,7 +2,7 @@
 
 ## Reporting
 
-Report toolkit vulnerabilities privately through [GitHub Private Vulnerability Reporting](https://github.com/poferraz/doublecheck/security/advisories/new). Avoid including credentials or private target source in public issues. The maintained package line is currently 0.1.x; schema v2 remediation is unreleased.
+Report toolkit vulnerabilities privately through [GitHub Private Vulnerability Reporting](https://github.com/poferraz/doublecheck/security/advisories/new). Avoid including credentials or private target source in public issues. Security fixes target the 0.2.x package line. Version 0.2.0 uses report schema v2; older callers need the documented migration. This checkout is prepared for release without publishing it.
 
 ## Trust and execution boundaries
 
@@ -14,7 +14,7 @@ Findings paths are canonicalized against the target root for identity. Out-of-ro
 
 ## Inference and privacy
 
-Native scans require a matching custom OCR provider and pass its name/model explicitly. Provider credential commands are refused; Doublecheck does not modify global provider settings. Arbitrary remote routing and cloud-tagged models require `--allow-remote`. Endpoint URLs with credentials, query strings, or fragments are rejected. Ollama readiness probes do not follow redirects.
+Native scans reject reserved built-in provider names for custom routing, require remote consent for models that Ollama explicitly reports as remote-backed, and require a matching custom OCR provider and pass its name/model explicitly. Provider credential commands are refused; Doublecheck does not modify global provider settings. Arbitrary remote routing and cloud-tagged models require `--allow-remote`. Endpoint URLs with credentials, query strings, or fragments are rejected. Ollama readiness probes do not follow redirects.
 
 A loopback URL can still reach a forwarding daemon/proxy. Model locality is reported as unverified; there is no unconditional local-only/no-egress guarantee. Configure Ollama's cloud features separately, assess OCR's configured tools, and apply OS/network isolation when your environment requires it. The optional Claude Code Review service runs under its own cloud/account policies.
 
@@ -22,4 +22,4 @@ Reports intentionally contain review evidence and may contain sensitive source e
 
 ## Validation limits
 
-The supported OCR version is 1.13.3; future versions require contract evidence. Its full-file scan lacks a coverage manifest and remains partial. The pinned upstream Cloudflare schema validates verdict-specific fields, but cannot authenticate the author, reproduce an exploit, or prove the supplied code matches your checkout. Unknown import coverage remains explicit. See [verification evidence](docs/verification/review-reliability.md).
+Managed OCR invocations disable its automatic updater; the doctor and native runner each enforce the supported version. The supported OCR version is 1.13.3; future versions require contract evidence. Its full-file scan lacks a coverage manifest and remains partial. The pinned upstream Cloudflare schema validates verdict-specific fields, but cannot authenticate the author, reproduce an exploit, or prove the supplied code matches your checkout. Unknown import coverage remains explicit. See [validation and limits](docs/RELEASE_0.2.0.md#validation-and-limits).

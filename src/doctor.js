@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import { normalizeEndpoint, resolveInferencePolicy } from './inference-policy.js';
+import { listInstalledModels, resolveInferencePolicy } from './inference-policy.js';
 const preferred = ['qwen2.5-coder:32b', 'qwen2.5-coder:14b', 'qwen2.5-coder:7b', 'deepseek-coder', 'codestral', 'llama3'];
+export const isSupportedOcrVersion = output => /^open-code-review v1\.13\.3(?:\s|$)/.test(String(output));
 export function selectBestModel(models = []) {
   if (!Array.isArray(models)) return null;
   const names = models.map(m => typeof m === 'string' ? m : m?.name).filter(n => typeof n === 'string' && n && !/embed|bge/i.test(n));
@@ -11,20 +12,15 @@ export async function checkEnvironment(options = {}) {
   const errors = []; const warnings = []; let activeModel = null; let inference = null; let ollamaReady = false; let ocrAvailable = false;
   if (Number(process.versions.node.split('.')[0]) < 20) errors.push('Node.js 20+ is required.');
   try {
-    const endpoint = normalizeEndpoint(options.ollamaEndpoint || 'http://localhost:11434');
-    if (!options.allowRemote && !['localhost', '127.0.0.1', '[::1]'].includes(new URL(endpoint).hostname)) throw Error('Remote endpoint requires --allow-remote.');
-    const response = await (options.fetch || globalThis.fetch)(`${endpoint}/api/tags`, { signal: AbortSignal.timeout(3000), redirect: 'error' });
-    if (!response.ok) throw Error('Ollama readiness request failed.');
-    const data = await response.json();
-    if (!Array.isArray(data.models)) throw Error('Ollama returned an invalid model list.');
-    const names = data.models.map(m => m?.name).filter(n => typeof n === 'string' && !/embed|bge/i.test(n));
+    const installedModels = await listInstalledModels(options);
+    const names = installedModels.map(m => m.name);
     const requested = names.find(n => n === options.model || n === `${options.model}:latest`);
     const candidates = options.model ? [requested].filter(Boolean) : [...new Set(names)];
     ollamaReady = names.length > 0;
     while (candidates.length) {
       const candidate = options.model ? candidates[0] : selectBestModel(candidates);
       try {
-        inference = await resolveInferencePolicy({ ...options, model: candidate }, { readOcrConfig: options.readOcrConfig });
+        inference = await resolveInferencePolicy({ ...options, model: candidate }, { readOcrConfig: options.readOcrConfig, installedModels });
         activeModel = candidate;
         break;
       } catch (error) {
@@ -39,8 +35,8 @@ export async function checkEnvironment(options = {}) {
     errors.push('Inference preflight failed. Check the endpoint, installed model, --allow-remote, and matching custom OCR provider configuration.');
   }
   try {
-    const version = (options.execFileSync || execFileSync)('ocr', ['version'], { stdio: 'pipe', encoding: 'utf8', timeout: 3000, maxBuffer: 65536 });
-    if (!/open-code-review v1\.13\.3\b/.test(String(version))) throw Error('Unsupported version');
+    const version = (options.execFileSync || execFileSync)('ocr', ['version'], { stdio: 'pipe', encoding: 'utf8', timeout: 3000, maxBuffer: 65536, env: { ...process.env, OCR_NO_UPDATE: '1' } });
+    if (!isSupportedOcrVersion(version)) throw Error('Unsupported version');
     ocrAvailable = true;
   } catch { errors.push('Alibaba OCR 1.13.3 is required; other versions need conformance verification.'); }
   return { ok: errors.length === 0 && ollamaReady && ocrAvailable && !!inference, nodeVersion: process.versions.node, ollamaReady, activeModel, ocrAvailable, inference, warnings, errors };

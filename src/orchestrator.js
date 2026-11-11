@@ -3,9 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { normalizeFindings, diagnostic } from './contracts.js';
+import { isSupportedOcrVersion } from './doctor.js';
 import { resolveInferencePolicy } from './inference-policy.js';
 import { recoverScanSession, snapshotSessionIds } from './ocr-session.js';
-import { emptyEngine, parseCoverage, constrainCompletion, validateCustomEngine } from './engine-result.js';
+import { emptyEngine, parseCoverage, validateCustomEngine, validateEngineScope } from './engine-result.js';
 
 export const DEFAULT_SCAN_TIMEOUT_MS = 1_200_000;
 export function validateScanTimeout(value = DEFAULT_SCAN_TIMEOUT_MS) {
@@ -20,11 +21,29 @@ export function resolveAuditTarget(targetPath = '.') {
   let targetRoot = directory; let revision = null;
   try { targetRoot = fs.realpathSync(execFileSync('git', ['-C', directory, 'rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000 }).trim()); } catch {}
   try { revision = execFileSync('git', ['-C', targetRoot, 'rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000 }).trim(); } catch {}
-  return { targetRoot, selectedPath: path.relative(targetRoot, resolved).split(path.sep).join('/'), revision };
+  const selectedPath = path.relative(targetRoot, resolved).split(path.sep).join('/');
+  // OCR interprets --path as a trimmed comma list, not a literal filename.
+  // Backslashes also disagree with canonical finding identity on POSIX.
+  if (selectedPath.includes(',') || selectedPath.includes('\\') || selectedPath !== selectedPath.trim() || /[\x00-\x1f]/.test(selectedPath)) throw Error('Target path cannot be represented literally by OCR.');
+  return { targetRoot, selectedPath, revision };
 }
 function readJson(file) {
-  if (fs.statSync(file).size > 16 * 1024 * 1024) throw Error('Oversized findings file');
-  return JSON.parse(fs.readFileSync(file, 'utf8'));
+  const limit = 16 * 1024 * 1024;
+  // O_NONBLOCK makes opening a FIFO safe; validate the opened object, not a
+  // pathname that could change between stat and read.
+  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK);
+  try {
+    const stat = fs.fstatSync(fd);
+    if (!stat.isFile() || stat.size > limit) throw Error('Invalid findings file');
+    const chunks = []; let total = 0;
+    while (total <= limit) {
+      const chunk = Buffer.alloc(Math.min(65536, limit + 1 - total));
+      const count = fs.readSync(fd, chunk, 0, chunk.length, null);
+      if (!count) return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      chunks.push(chunk.subarray(0, count)); total += count;
+    }
+    throw Error('Oversized findings file');
+  } finally { fs.closeSync(fd); }
 }
 export async function defaultAlibabaRunner(targetPath, options = {}) {
   const target = options.target || resolveAuditTarget(targetPath);
@@ -34,12 +53,17 @@ export async function defaultAlibabaRunner(targetPath, options = {}) {
   result.provenance.revision = target.revision;
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'doublecheck-'));
   const outputFile = path.join(tmp, 'output.json');
-  const runner = options.execFileSync || execFileSync;
+  const execute = options.execFileSync || execFileSync;
+  const runner = (cmd, args, settings) => execute(cmd, args, { ...settings, env: { ...process.env, OCR_NO_UPDATE: '1' } });
   try {
     const inference = await resolveInferencePolicy(options, { readOcrConfig: options.readOcrConfig });
     result.requestedInference = inference;
     const versionText = runner('ocr', ['version'], { encoding: 'utf8', stdio: 'pipe', timeout: 3000 });
     result.provenance.version = String(versionText).match(/v(\d+\.\d+\.\d+)/)?.[1] ?? null;
+    if (!isSupportedOcrVersion(versionText)) {
+      result.diagnostics.push(diagnostic('UNSUPPORTED_OCR_VERSION', 'architect'));
+      return result;
+    }
     const args = ['scan', '--repo', target.targetRoot];
     if (target.selectedPath) args.push('--path', target.selectedPath);
     args.push('--format', 'json', '-o', outputFile, '--no-plan', '--concurrency', String(options.concurrency || 4));
@@ -65,7 +89,7 @@ export async function defaultAlibabaRunner(targetPath, options = {}) {
         result.provenance.model = inference.model;
         result.diagnostics.push(diagnostic('OCR_SESSION_RECOVERED', 'architect'), diagnostic('UNKNOWN_NATIVE_COVERAGE', 'architect'));
       }
-      return result;
+      return validateEngineScope(result, target);
     };
     if (!fs.existsSync(outputFile)) {
       result.diagnostics.push(diagnostic('MISSING_OCR_OUTPUT', 'architect'));
@@ -101,7 +125,7 @@ export async function defaultAlibabaRunner(targetPath, options = {}) {
       if (result.status !== 'failed') result.status = 'partial';
       result.diagnostics.push(diagnostic('INFERENCE_IDENTITY_MISMATCH', 'architect'));
     }
-    return constrainCompletion(result);
+    return validateEngineScope(result, target);
   } catch { result.diagnostics.push(diagnostic('INVALID_OCR_RESULT', 'architect')); result.status = 'failed'; return result; }
   finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 }
@@ -114,7 +138,7 @@ export async function defaultCloudflareRunner(targetPath, options = {}) {
     result.findings = normalized.findings; result.status = 'partial';
     result.diagnostics = [...normalized.diagnostics, diagnostic('UNKNOWN_IMPORT_COVERAGE', 'adversary')];
   } catch { result.diagnostics.push(diagnostic('INVALID_ADVERSARY_INPUT', 'adversary')); }
-  return result;
+  return validateEngineScope(result, target);
 }
 export async function runDualAudit(targetPath, options = {}) {
   const target = resolveAuditTarget(targetPath);
@@ -124,6 +148,7 @@ export async function runDualAudit(targetPath, options = {}) {
   const engines = [];
   for (const [source, custom, native] of [['adversary', options.cloudflareRunner, defaultCloudflareRunner], ['architect', options.alibabaRunner, defaultAlibabaRunner]]) {
     if (!requiredSources.includes(source)) { engines.push(emptyEngine(source, 'skipped', 'LENS_NOT_REQUESTED', target)); continue; }
+    if (source === 'architect' && options.nativePreflightFailed) { engines.push(emptyEngine(source, 'failed', 'NATIVE_PREFLIGHT_FAILED', target)); continue; }
     try {
       const raw = await (custom || native)(targetPath, { ...options, target });
       engines.push(custom ? validateCustomEngine(source, raw, target) : raw);
@@ -134,5 +159,5 @@ export async function runDualAudit(targetPath, options = {}) {
   const usable = required.some(e => e.status === 'complete' || e.status === 'partial' || e.findings.length);
   const status = complete ? 'complete' : usable ? 'partial' : 'failed';
   const findings = engines.flatMap(e => e.findings);
-  return { targetPath, reviewMode, requiredSources, timestamp: new Date().toISOString(), status, engines, findings, errors: engines.filter(e => e.status === 'failed').map(e => `${e.source} review failed`), cloudflareFindings: findings.filter(f => f.source === 'adversary'), alibabaComments: findings.filter(f => f.source === 'architect') };
+  return { targetPath: path.resolve(targetPath), reviewMode, requiredSources, timestamp: new Date().toISOString(), status, engines, findings, errors: engines.filter(e => e.status === 'failed').map(e => `${e.source} review failed`), cloudflareFindings: findings.filter(f => f.source === 'adversary'), alibabaComments: findings.filter(f => f.source === 'architect') };
 }

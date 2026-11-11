@@ -4,7 +4,7 @@ Evidence-aware code security and architecture review for developers and AI codin
 
 [![CI](https://github.com/poferraz/doublecheck/actions/workflows/ci.yml/badge.svg)](https://github.com/poferraz/doublecheck/actions/workflows/ci.yml)
 
-This checkout contains **unreleased report schema v2 changes**. The package version remains `0.1.1`; published npm builds may not include these changes. Commands below run this checkout. The package name is `@poferraz/doublecheck`.
+Version **0.2.0** introduces report schema v2 and changes the library result contract. This checkout and its local package are prepared for release; no publication is implied. Commands below run this checkout. The package name is `@poferraz/doublecheck`. Read the [0.2.0 release and migration notes](docs/RELEASE_0.2.0.md) before upgrading.
 
 Doublecheck validates review findings, preserves verification state and scan coverage, correlates exact source locations, and writes Markdown/JSON reports. An adversary review looks for exploitable trust-boundary failures; an architect review looks for correctness and lifecycle defects. Their overlap is evidence to investigate, not proof of a critical vulnerability.
 
@@ -38,7 +38,7 @@ node ./bin/doublecheck.js . --mode architect --model qwen3:8b --format both -o r
 node ./bin/doublecheck.js . --findings findings.json --model qwen3:8b
 ```
 
-The placeholder key is required by OCR's custom-provider configuration; it is not a cloud API credential. Doublecheck checks the named provider's URL, protocol, and accepted model before invoking OCR with explicit provider/model arguments. It rejects credential commands for that provider and does not silently use an ambient cloud provider.
+The placeholder key is required by OCR's custom-provider configuration; it is not a cloud API credential. Doublecheck rejects built-in OCR provider names for custom routing, checks the named provider's URL, protocol, and installed model, and requires remote opt-in when Ollama reports remote model backing. These checks run again before native execution. It rejects credential commands for that provider and does not silently use an ambient cloud provider.
 
 A loopback endpoint does not prove local inference: a daemon or proxy can forward requests. Remote endpoints and cloud-tagged models require `--allow-remote`; that flag is consent to routing, not a guarantee about provider data handling. Configure your daemon's cloud policy separately. See [SECURITY.md](SECURITY.md).
 
@@ -58,9 +58,13 @@ JSON uses `schemaVersion: "doublecheck/report/v2"` and contains `status`, `engin
 | `1` | Required coverage is complete and confirmed high/critical findings exist. |
 | `2` | Review is incomplete/failed, high/critical/unrated candidates remain unresolved, or invocation/preflight/output fails. Incompleteness takes precedence. |
 
+A report with no findings and unknown coverage means the engine did not establish which files completed. It exits **2**; inspect Engine Coverage and Diagnostics before deciding how to continue. A zero count is not a completed review.
+
 Native execution metadata distinguishes process success, timeout, and failure from review coverage. Requested provider/model/endpoint are retained separately from actual reported identity, including when output is missing. Timeouts emit `OCR_PROCESS_TIMEOUT` without exposing raw external error text.
 
 If OCR fails before writing usable output (missing, truncated, or malformed JSON), Doublecheck attempts saved-session recovery only when that process emitted an exact session marker. The ID must be absent from the pre-run inventory and its saved metadata must match this repo, model, and run time. A missing/conflicting marker, unavailable inventory, invalid time window, mismatching metadata, or malformed comments prevents recovery. Corrupt-output recovery requires a failed native process and preserves any explicitly failed terminal status. A hard kill may therefore still require manual recovery with `ocr session` commands. Recovered comments remain candidates with unknown coverage and a partial result; recovery never converts a failed process into a clean review.
+
+If native preflight fails while `--findings` is supplied, valid imported evidence is saved in a partial report and the command exits **2** without starting native inference.
 
 Native OCR 1.13.3 full-file scans currently return **2** because coverage is unknown. This is expected and must not be swallowed in CI. A complete clean review means coverage completed; it is not a security certification.
 
@@ -70,7 +74,7 @@ For `--format both`, `-o review.json`, `-o review.md`, and `-o review` produce `
 
 | Option | Purpose |
 | --- | --- |
-| `[path]` | Existing target file/directory; default `.`. Use `--` before dash-prefixed targets. |
+| `[path]` | Existing target file/directory; default `.`. Use `--` before dash-prefixed targets. Commas, leading/trailing whitespace and ambiguous backslashes are refused when OCR cannot represent the selection literally. |
 | `--mode dual\|architect` | Required lenses; default `dual`. Architect mode cannot import adversary findings. |
 | `-m, --model name` | Installed model; otherwise choose an available non-embedding model permitted by the named provider. Explicit model requests never fall back. |
 | `--ollama url` | Base endpoint; default `http://localhost:11434`. |
@@ -97,21 +101,21 @@ The service needs separate organization/GitHub App configuration. See [official 
 
 ## Agent skill and exports
 
-The native skill is [skills/doublecheck/SKILL.md](skills/doublecheck/SKILL.md). Export into a dedicated directory:
+The native skill is [skills/doublecheck/SKILL.md](skills/doublecheck/SKILL.md). Export into a dedicated directory with fresh platform destinations. Existing platform exports are preserved; choose a new output directory to regenerate:
 
 ```bash
 bash scripts/convert.sh all --output-dir /tmp/doublecheck-platforms
 ```
 
-Supported targets: `claude`, `antigravity`, `cursor`, `windsurf`, `codex`, `review-md`, `all`. Native skill exports retain selectively loaded reference manuals; Cursor references its renamed manuals; consolidated exports link embedded anchors. Conversion checks prove generated-link integrity, not actual discovery in every host. Follow each host's installation instructions and verify activation before relying on it. Avoid overwriting an existing project routing file with an exported `AGENTS.md`.
+Supported targets: `claude`, `antigravity`, `cursor`, `windsurf`, `codex`, `review-md`, `all`. Native skill exports retain selectively loaded reference manuals; Cursor references its renamed manuals; consolidated exports link embedded anchors. Conversion checks prove generated-link integrity, not actual discovery in every host. For Antigravity 2, install the exported skill under the target project's `.agents/skills/doublecheck/` (or global `~/.gemini/config/skills/doublecheck/`); the legacy IDE path is not the current desktop discovery root. Follow each host's installation instructions and verify activation before relying on it. Avoid overwriting an existing project routing file with an exported `AGENTS.md`.
 
 ## Library and migration
 
-Import `@poferraz/doublecheck` after installing a build that includes schema v2. Public function names remain available, including `runDualAudit`, `synthesizeReport`, `detectConvergence`, `checkEnvironment`, and `generateDefaultReviewMd`; signatures/result shapes changed and require caller migration.
+Import `@poferraz/doublecheck` after installing version 0.2.0. Public function names remain available, including `runDualAudit`, `synthesizeReport`, `detectConvergence`, `checkEnvironment`, and `generateDefaultReviewMd`; signatures/result shapes changed and require caller migration.
 
-Custom runners return validated `EngineResult` objects. Legacy array-returning runners are accepted with unknown coverage/partial status. `detectConvergence` now consumes normalized findings and returns informational location correlations. Use `json.correlations.length` instead of removed `convergedCount`/`summary.convergedDefects`. `normalizePath` is a display helper; root-aware identity uses `canonicalizeFindingPath`. Deprecated `cloudflareFindings`/`alibabaComments` fields contain normalized records.
+Custom runners return validated `EngineResult` objects. Legacy array-returning runners are accepted with unknown coverage/partial status. `detectConvergence` now consumes normalized findings and returns informational location correlations. Use `getReviewExitCode(synthesizeReport(audit).json)` for the library CI decision; passing a raw audit or malformed report returns 2. Custom complete manifests must cover the actual selected file set (tracked and unignored worktree files in Git, regular files otherwise); claimed but absent files cannot pass. Location correlations are bounded; `correlationSummary.truncated` and diagnostics disclose any omitted pairs. Use `json.correlations.length` instead of removed `convergedCount`/`summary.convergedDefects`. `normalizePath` is a display helper; root-aware identity uses `canonicalizeFindingPath`. Deprecated `cloudflareFindings`/`alibabaComments` fields contain normalized records.
 
-Read the [remediation contract](docs/superpowers/plans/2026-10-24-review-reliability-remediation.md) for exact interfaces and the [verification record](docs/verification/review-reliability.md) for executed checks and remaining limits.
+Read the [0.2.0 migration contract](docs/RELEASE_0.2.0.md) for exact interfaces and the [release validation scope](docs/RELEASE_0.2.0.md#validation-and-limits) for executed checks and remaining limits.
 
 ## Development and verification
 
@@ -123,6 +127,6 @@ npm run smoke:consumer
 node scripts/verify-ocr-contract.mjs --preview-only
 ```
 
-Offline tests use synthetic records, temporary directories, and injected external boundaries. Packaged smoke exercises the CLI/library without devDependencies. The manually dispatched [native OCR contract workflow](.github/workflows/ocr-contract.yml) provisions an isolated runner provider and a loopback mock inference server; `npm run test:ocr-contract` locally requires an already configured synthetic provider and never writes your OCR config. A frozen-response evaluation corpus tests deterministic handling, not live model precision/recall.
+Offline tests use synthetic records, temporary directories, and injected external boundaries. Packaged smoke exercises the CLI/library without devDependencies. The manually dispatched native OCR contract workflow (`.github/workflows/ocr-contract.yml` in the repository) provisions an isolated runner provider and a loopback mock inference server; `npm run test:ocr-contract` locally requires an already configured synthetic provider and never writes your OCR config. A frozen-response evaluation corpus tests deterministic handling, not live model precision/recall.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md), [CHANGELOG.md](CHANGELOG.md), and [SECURITY.md](SECURITY.md). Apache-2.0; the vendored Cloudflare schema retains its MIT license and pinned provenance.

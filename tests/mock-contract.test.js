@@ -32,6 +32,27 @@ it('retains bounded valid model requests and streaming responses', async () => {
   expect((await request(handler, '{"model":"test-local"}')).statusCode).toBe(400);
   expect(seen).toHaveLength(2);
 });
+it.each([false, true])('finishes an OCR scan via the offered task_done tool (stream=%s)', async stream => {
+  const req = { model: 'test-local', stream, tools: [{ type: 'function', function: { name: 'task_done' } }] };
+  const res = await request(createMockHandler(), JSON.stringify(req));
+  expect(res.statusCode).toBe(200);
+  let call; let reason;
+  if (stream) {
+    const events = res.body.trim().split('\n\n').map(s => s.slice('data: '.length));
+    expect(events.pop()).toBe('[DONE]');
+    const choices = events.map(s => JSON.parse(s).choices[0]);
+    call = choices[0].delta.tool_calls?.[0];
+    expect(call?.index).toBe(0);
+    reason = choices.at(-1).finish_reason;
+  } else {
+    const choice = JSON.parse(res.body).choices[0];
+    call = choice.message.tool_calls?.[0];
+    reason = choice.finish_reason;
+  }
+  expect(reason).toBe('tool_calls');
+  expect(call).toMatchObject({ id: expect.any(String), type: 'function', function: { name: 'task_done' } });
+  expect(JSON.parse(call.function.arguments)).toEqual({ state: 'DONE' });
+});
 it('waits for the requested IPC message and cleans listeners/timer', async () => {
   vi.useFakeTimers(); const child = new EventEmitter();
   const waiting = waitForMockMessage(child, 'ready');

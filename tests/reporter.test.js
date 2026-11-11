@@ -78,3 +78,40 @@ it.each(['provenance', 'requestedInference', 'execution'])('diagnoses malformed 
   expect(report.json.findings).toEqual([valid]); expect(report.json.status).toBe('partial');
   expect(report.json.diagnostics.some(d => d.code === 'INVALID_REPORT_ENGINE')).toBe(true);
 });
+
+it('preserves a valid report with enough backtick runs to overflow an argument spread', () => {
+  const raw = upstream();
+  raw.remediation.strategy = '`x'.repeat(140_000);
+  const report = synthesizeReport({ cloudflareFindings: [raw] });
+  expect(report.json.p1[0].remediation).toBe(raw.remediation.strategy);
+  expect(report.markdown).toContain(raw.remediation.strategy);
+});
+
+it('links each correlation to the exact finding and shows bounded confirmation evidence', () => {
+  const raw = upstream();
+  const longInstruction = 'X'.repeat(2000);
+  raw.execution.instructions.push(longInstruction);
+  const report = synthesizeReport({ cloudflareFindings: [raw], alibabaComments: [{ path: 'src/a.js', start_line: 20, content: 'overlap' }] });
+  expect(report.json.correlations).toHaveLength(1);
+  const links = [...report.markdown.matchAll(/\]\(#(finding-[a-f0-9]+)\)/g)].map(m => m[1]);
+  expect(new Set(links).size).toBe(2);
+  for (const id of links) expect(report.markdown).toContain(`<a id="${id}"></a>`);
+  expect(report.markdown).toContain(raw.execution.observed_result);
+  expect(report.markdown).toContain(raw.execution.instructions[0]);
+  expect(report.markdown).not.toContain(longInstruction);
+  expect(report.json.p1[0].verification.execution.instructions).toContain(longInstruction);
+});
+
+it('discloses bounded overlap output and retains every finding at heavily shared locations', () => {
+  const a = []; const b = [];
+  for (let i = 0; i < 100; i++) {
+    a.push({ title: 'A' + i, file: 'src/a.js', line: 10 });
+    b.push({ path: 'src/a.js', start_line: 10, content: 'B' + i });
+  }
+  const report = synthesizeReport({ cloudflareFindings: a, alibabaComments: b });
+  expect(report.json.correlations.length).toBeLessThan(10_000);
+  expect(report.json.correlationSummary.truncated).toBe(true);
+  expect(report.json.findings).toHaveLength(200);
+  expect(report.markdown).toMatch(/additional overlaps.*omitted/i);
+  expect(report.json.diagnostics.some(d => d.code === 'CORRELATIONS_TRUNCATED')).toBe(true);
+});

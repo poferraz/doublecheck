@@ -17,7 +17,8 @@ try {
   assert.equal(spawnSync(process.execPath, [bin, target, '--init-review']).status, 0);
   assert.equal(fs.readFileSync(path.join(target, 'REVIEW.md'), 'utf8'), fs.readFileSync(path.join(pkg, 'src/templates/REVIEW.md'), 'utf8'));
   const api = await import(pathToFileURL(path.join(pkg, 'src/index.js')));
-  const engine = { source: 'architect', status: 'complete', findings: [], diagnostics: [], coverage: { selected: ['fixture.js'], reviewed: ['fixture.js'], failed: [], excluded: [], origin: 'reported' }, provenance: { targetRoot: fs.realpathSync(target), revision: null, mode: 'custom' } };
+  fs.writeFileSync(path.join(target, 'fixture.js'), 'export const fixture = true;\n');
+  const engine = { source: 'architect', status: 'complete', findings: [], diagnostics: [], coverage: { selected: ['fixture.js', 'REVIEW.md'], reviewed: ['fixture.js', 'REVIEW.md'], failed: [], excluded: [], origin: 'reported' }, provenance: { targetRoot: fs.realpathSync(target), revision: null, mode: 'custom' } };
   const code = await api.runCli([target, '--mode', 'architect', '-f', 'both', '-o', path.join(target, 'report.json')], {
     checkEnvironment: async () => ({ ok: true, activeModel: 'fixture', inference: {}, warnings: [] }),
     runDualAudit: (p, options) => api.runDualAudit(p, { ...options, alibabaRunner: () => engine })

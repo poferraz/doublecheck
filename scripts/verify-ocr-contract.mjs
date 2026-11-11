@@ -6,13 +6,14 @@ import { execFileSync, fork } from 'node:child_process';
 import { waitForMockMessage } from './helpers/mock-process.mjs';
 import { runCli } from '../src/cli.js';
 import { runDualAudit } from '../src/orchestrator.js';
+const ocrEnvironment = { ...process.env, OCR_NO_UPDATE: '1' };
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'doublecheck-native-'));
 let server;
 try {
-  const version = execFileSync('ocr', ['version'], { encoding: 'utf8', timeout: 3000 });
+  const version = execFileSync('ocr', ['version'], { encoding: 'utf8', timeout: 3000, env: ocrEnvironment });
   assert.match(version, /v1\.13\.3\b/);
   fs.writeFileSync(path.join(tmp, 'fixture.js'), 'export function add(a, b) { return a + b; }\n');
-  const preview = JSON.parse(execFileSync('ocr', ['scan', '--repo', tmp, '--preview', '--format', 'json'], { encoding: 'utf8', timeout: 10000, stdio: ['ignore', 'pipe', 'pipe'] }));
+  const preview = JSON.parse(execFileSync('ocr', ['scan', '--repo', tmp, '--preview', '--format', 'json'], { encoding: 'utf8', timeout: 10000, env: ocrEnvironment, stdio: ['ignore', 'pipe', 'pipe'] }));
   assert.ok(Array.isArray(preview.files) && preview.files.some(e => e.path === 'fixture.js' && e.will_review));
   if (process.argv.includes('--preview-only')) console.log('OCR 1.13.3 native file-selection preview passed; inference/output conformance was not exercised.');
   else {

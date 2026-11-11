@@ -13,18 +13,18 @@ OUTPUT_DIR="$PROJECT_DIR/dist/platforms"
 
 usage() {
     cat <<'USAGE'
-Usage: bash scripts/convert.sh <platform>
+Usage: bash scripts/convert.sh <platform> [--output-dir <directory>]
 
 Supported platforms:
   claude       — Claude Code (~/.claude/skills/ format)
   cursor       — Cursor IDE (.cursor/rules/ format)
-  antigravity  — Google Antigravity (~/.gemini/antigravity/skills/ format)
+  antigravity  — Antigravity 2 (project .agents/skills/ format)
   windsurf     — Windsurf (.windsurfrules format)
   codex        — OpenAI Codex (AGENTS.md format)
-  review-md    — Claude Code Review (.github/REVIEW.md format)
+  review-md    — Claude Code Review (root REVIEW.md)
   all          — Build distribution packages for all platforms
 
-Output is written to dist/platforms/<platform>/
+Default output: dist/platforms/<platform>/. Selected platform directories must not already exist.
 USAGE
     exit 1
 }
@@ -104,7 +104,10 @@ convert_cursor() {
     local out="$OUTPUT_DIR/cursor/rules"
     mkdir -p "$out"
     echo "Converting for Cursor..."
-    stream_skill_body | sed -E 's@\]\(references/([A-Za-z0-9_-]+)\.md\)@](./doublecheck-\1.md)@g' > "$out/doublecheck.md"
+    {
+        printf '%s\n' '---' 'description: Run an evidence-based security and architecture review using Doublecheck.' 'alwaysApply: false' '---'
+        stream_skill_body | sed -E 's@\]\(references/([A-Za-z0-9_-]+)\.md\)@](./doublecheck-\1.md)@g'
+    } > "$out/doublecheck.mdc"
     for ref in "$SKILL_DIR"/references/*.md; do
         sed -E 's@\]\(references/([A-Za-z0-9_-]+)\.md\)@](./doublecheck-\1.md)@g' "$ref" > "$out/doublecheck-$(basename "$ref")"
     done
@@ -134,29 +137,33 @@ convert_review_md() {
     echo "Converting for Claude Code Review (REVIEW.md)..."
     cat "$PROJECT_DIR/src/templates/REVIEW.md" > "$out/REVIEW.md"
     echo "Output: $out/REVIEW.md"
-    echo "Install: cp $out/REVIEW.md REVIEW.md"
 }
 
 case "$PLATFORM" in
-    claude)       convert_claude ;;
-    antigravity)  convert_antigravity ;;
-    cursor)       convert_cursor ;;
-    windsurf)     convert_windsurf ;;
-    codex)        convert_codex ;;
-    review-md)    convert_review_md ;;
-    all)
-        convert_claude
-        convert_antigravity
-        convert_cursor
-        convert_windsurf
-        convert_codex
-        convert_review_md
-        ;;
+    claude|antigravity|cursor|windsurf|codex|review-md) platforms=("$PLATFORM") ;;
+    all) platforms=(claude antigravity cursor windsurf codex review-md) ;;
     *)
         echo "Error: Unknown platform '$PLATFORM'"
         usage
         ;;
 esac
 
-echo ""
-echo "Done. Converted doublecheck for $PLATFORM."
+destination="$OUTPUT_DIR"
+helper="$SCRIPT_DIR/helpers/export-directory.mjs"
+stage="$(node "$helper" prepare "$destination" "${platforms[@]}")"
+trap 'rm -rf -- "$stage"' EXIT
+OUTPUT_DIR="$stage"
+for platform in "${platforms[@]}"; do
+    "convert_${platform//-/_}" > /dev/null
+done
+node "$helper" publish "$destination" "$stage" "${platforms[@]}"
+
+for platform in "${platforms[@]}"; do
+    printf 'Exported %s: %q\n' "$platform" "$destination/$platform"
+    case "$platform" in
+        claude) echo 'Install the exported skill as ~/.claude/skills/doublecheck/.' ;;
+        antigravity) echo 'Install the exported skill in the target project as .agents/skills/doublecheck/ (Antigravity 2).' ;;
+        cursor) echo 'Install the exported rules/ contents into .cursor/rules/.' ;;
+        review-md) printf 'From the target repository, initialize its review policy.\nInstall: node %q . --init-review\n' "$PROJECT_DIR/bin/doublecheck.js" ;;
+    esac
+done
