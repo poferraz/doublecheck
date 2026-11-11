@@ -1,0 +1,83 @@
+{
+  "date": "2026-11-11",
+  "scope": "Project-scoped Doublecheck activation and static review of two synthetic JavaScript files",
+  "skillSourceCommit": "b722126d193a5f9e29fef3aa694b1388093877c9",
+  "authorization": "User explicitly resumed Antigravity testing after requesting the branch push and PR",
+  "inputs": {
+    "safe.js": {
+      "sha256": "1d37aaa2c401a4558e4361ab598376edabefc2b0f9f8b8825222b97b09febf69",
+      "source": "export function parse(input) {\n  return JSON.parse(input);\n}\n"
+    },
+    "vulnerable.js": {
+      "sha256": "0650bf00256ed582952995cc41c710ff20f5d6475846a9754b3c46311230d889",
+      "source": "// Synthetic release-check fixture; no credentials or real application data.\nexport function handleRequest(req, res) {\n  const code = new URL(req.url, 'http://fixture.invalid').searchParams.get('code');\n  res.end(String(eval(code)));\n}\n"
+    },
+    "SKILL.md": {
+      "sha256": "9d17790859c4d8325612fe7a5ab24ba0eb1cc5f84cd11e63d66d17433bfaa02b",
+      "location": ".agents/skills/doublecheck/SKILL.md",
+      "referenceManuals": ["attack-classes.md", "convergence.md", "defense-in-depth.md", "rulesets.md"]
+    },
+    "publicSkillFilesMatched": 5,
+    "dataClassification": "Public pushed instructions and synthetic fixtures only; no real application code or credentials"
+  },
+  "desktop": {
+    "version": "2.31.0",
+    "modelLabel": "Gemini 4 Argon High",
+    "backendModelId": "not reported",
+    "workspace": "Fresh committed Git workspace /private/tmp/doublecheck-antigravity-6TD8ls",
+    "conversationId": "8fb97454-260d-4cc5-8dad-c715f2d4ed5b",
+    "permissionMode": "Request Review",
+    "discovery": "Passed: /doublecheck picker listed the exported skill; selected skill chip submitted with review prompt",
+    "observedReferenceRead": "rulesets.md",
+    "initialResponseSeconds": 31,
+    "initialPrompt": "Review only safe.js and vulnerable.js in this synthetic project with the selected skill. Read-only: do not execute JavaScript, edit files, access network tools, or inspect outside this workspace. Reply in at most 100 words using exactly four labeled lines: Skill; Handler (file:line, source to sink, verdict, and whether executed); Parser (whether throwing on malformed JSON alone is a confirmed bug); Coverage (files reviewed and runtime/other-file limits).",
+    "initialAnswer": [
+      "Skill: doublecheck (SKILL.md) applied with adversary and architect lenses in read-only static mode.",
+      "Handler: handleRequest at vulnerable.js:3-4 (vulnerable.js:4) passes untrusted req.url query param searchParams.get('code') (source) directly to eval(code) and res.end (sink); verdict: confirmed critical code injection (static trace; not executed).",
+      "Parser: In parse (safe.js:1-3), JSON.parse(input) throwing on malformed JSON alone is not a confirmed bug (standard behavior; needs_validation or rejected without caller error-handling context).",
+      "Coverage: Reviewed only safe.js and vulnerable.js; all other files, callers, CLI tools, and runtime JavaScript execution were excluded, leaving repo and runtime coverage unknown/untested."
+    ],
+    "followupPrompt": "Before retaining the confirmed handler finding, give one harmless bounded reproduction derived from the inspected source, its expected result, and whether you executed it. State the missing deployment/exposure assumptions. At most 70 words; no tools or execution.",
+    "followupAnswer": "Reproduction: Calling handleRequest in vulnerable.js with { url: '/?code=1%2B1' } extracts code = '1+1' (vulnerable.js:3), evaluates eval('1+1') to 2, and passes '2' to res.end(String(...)) (vulnerable.js:4). Expected result: res.end('2'). Executed: No (static source trace only; no JavaScript executed). Missing assumptions: Whether handleRequest is mounted on a live server, reachable by untrusted network callers, or protected by upstream authentication, routing, or input validation.",
+    "assessment": {
+      "skillActivation": "passed",
+      "sourceToSinkTrace": "passed",
+      "safeControl": "passed",
+      "coverageDisclosure": "passed",
+      "boundedReproduction": "Provided only after follow-up; source-derived and not executed",
+      "runtimeConfirmation": "not performed",
+      "severity": "Model's initial critical label is not an independently validated production severity or exposure claim"
+    }
+  },
+  "cli": {
+    "version": "1.4.7",
+    "mode": "plan",
+    "permissionMode": "proceed-in-sandbox",
+    "model": "Host default; actual model not reported",
+    "skillExpansion": [{ "name": "doublecheck", "type": "skill" }],
+    "tools": ["read_file"],
+    "reads": [
+      "safe.js",
+      "vulnerable.js",
+      ".agents/skills/doublecheck/references/attack-classes.md",
+      ".agents/skills/doublecheck/references/rulesets.md"
+    ],
+    "exitCode": 0,
+    "status": "SUCCESS",
+    "durationSeconds": 20.502221,
+    "turns": 1,
+    "responseCharacters": 658,
+    "responseTruncatedMidLink": true,
+    "observedJudgment": "Identified active skill and handler code injection as needs_validation at vulnerable.js:2-5",
+    "missingFromCapturedAnswer": ["Safe parser judgment", "Explicit final coverage assessment"],
+    "assessment": "Skill expansion and reference loading passed; complete review output was not demonstrated by CLI"
+  },
+  "limits": [
+    "The earlier saved-project lookup failure was not isolated: project ID, directory and Git state changed before the fresh successful desktop run.",
+    "The desktop arithmetic reproduction followed a separate prompt; it was not executed and does not establish production exposure.",
+    "The CLI response was truncated; the complete desktop conclusions must not be attributed to it.",
+    "No precision, recall, all-host compatibility or full-repository coverage estimate follows from these two fixtures.",
+    "No global skills or provider configuration were changed."
+  ],
+  "releaseImpact": "Antigravity project-skill activation demonstrated on the recorded versions. No Doublecheck runtime defect found in this bounded check."
+}

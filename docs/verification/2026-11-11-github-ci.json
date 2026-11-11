@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-11",
+  "repository": "poferraz/doublecheck",
+  "pullRequest": "https://github.com/poferraz/doublecheck/pull/1",
+  "validatedHead": "b722126d193a5f9e29fef3aa694b1388093877c9",
+  "ci": {
+    "url": "https://github.com/poferraz/doublecheck/actions/runs/43118968164",
+    "status": "completed",
+    "conclusion": "success",
+    "platform": "GitHub-hosted Ubuntu x64",
+    "jobs": [
+      { "name": "consumer (20.0.0)", "node": "20.0.0", "conclusion": "success" },
+      { "name": "consumer (20.x)", "node": "20.20.2", "conclusion": "success" },
+      { "name": "test (22.12.0)", "node": "22.12.0", "fullTests": 222, "integrationTests": 6, "conclusion": "success" },
+      { "name": "test (24.x)", "node": "24.22.2", "fullTests": 222, "integrationTests": 6, "conclusion": "success" },
+      { "name": "test (26.x)", "node": "26.13.0", "fullTests": 222, "integrationTests": 6, "conclusion": "success" }
+    ]
+  },
+  "nativeOcr": {
+    "url": "https://github.com/poferraz/doublecheck/actions/runs/43118968231",
+    "jobUrl": "https://github.com/poferraz/doublecheck/actions/runs/43118968231/job/130854226883",
+    "status": "completed",
+    "conclusion": "success",
+    "ocrVersion": "1.13.3",
+    "provider": "doublecheck-contract",
+    "model": "test-local",
+    "inference": "loopback mock only",
+    "scanExitCode": 2,
+    "coverage": "unknown"
+  },
+  "packagePublished": false,
+  "tagCreated": false,
+  "merged": false,
+  "notes": [
+    "Native OCR contract gained a pull_request trigger so its first run could execute before the new workflow reached main.",
+    "This receipt records the first verified code/CI commit. Final release documentation and the rebuilt artifact require final-head CI and consumer checks before publication."
+  ]
+}

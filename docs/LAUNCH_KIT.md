@@ -6,6 +6,6 @@ Current native OCR scans use explicit provider routing and remain partial where 
 
 Before announcing a release, run the complete regression suite, packaged consumer checks, native mock-inference workflow, and relevant host discovery checks. Describe any unexecuted category explicitly. Remove claims of zero-cost guaranteed private inference, 100% confidence, or automatic hosted-review enforcement.
 
-Package and lockfile versions are aligned at 0.2.0. No publication, Git tag or push is part of this preparation. Use README.md and docs/RELEASE_0.2.0.md for the supported contract; use docs/verification/2026-11-09-release-readiness.md for executed checks and remaining validation limits.
+Package and lockfile versions are aligned at 0.2.0. The release branch is pushed and PR #1 is open for review. No merge, publication or Git tag has been performed. Use README.md and docs/RELEASE_0.2.0.md for the supported contract; use docs/verification/2026-11-09-release-readiness.md for executed checks and remaining validation limits.
 
-Position this as evidence-preserving review tooling. Hosted Codex activation was checked on two synthetic files. Antigravity activation is paused by request; other exported hosts do not have interactive acceptance evidence. Do not describe those integrations as runtime-verified or claim measured detection accuracy.
+Position this as evidence-preserving review tooling. Hosted Codex and Antigravity desktop activation were each checked on two synthetic files. Antigravity CLI also expanded the skill, but its captured answer was truncated. Other exported hosts do not have interactive acceptance evidence. These checks establish bounded activation, not measured detection accuracy or executed vulnerability confirmation.

@@ -127,6 +127,6 @@ npm run smoke:consumer
 node scripts/verify-ocr-contract.mjs --preview-only
 ```
 
-Offline tests use synthetic records, temporary directories, and injected external boundaries. Packaged smoke exercises the CLI/library without devDependencies. The manually dispatched native OCR contract workflow (`.github/workflows/ocr-contract.yml` in the repository) provisions an isolated runner provider and a loopback mock inference server; `npm run test:ocr-contract` locally requires an already configured synthetic provider and never writes your OCR config. A frozen-response evaluation corpus tests deterministic handling, not live model precision/recall.
+Offline tests use synthetic records, temporary directories, and injected external boundaries. Packaged smoke exercises the CLI/library without devDependencies. The native OCR contract workflow (`.github/workflows/ocr-contract.yml` in the repository) runs on pull requests to main or manual dispatch and provisions an isolated runner provider and a loopback mock inference server; `npm run test:ocr-contract` locally requires an already configured synthetic provider and never writes your OCR config. A frozen-response evaluation corpus tests deterministic handling, not live model precision/recall.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md), [CHANGELOG.md](CHANGELOG.md), and [SECURITY.md](SECURITY.md). Apache-2.0; the vendored Cloudflare schema retains its MIT license and pinned provenance.
