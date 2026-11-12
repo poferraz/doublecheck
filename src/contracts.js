@@ -21,6 +21,7 @@ export function stableSerialize(value) {
   if (object(value)) return `{${Object.keys(value).sort().map(k => `${JSON.stringify(k)}:${stableSerialize(value[k])}`).join(',')}}`;
   return JSON.stringify(value);
 }
+const uniqueRecords = records => [...new Map(records.map(record => [stableSerialize(record), record])).values()];
 // Implements only the vocabulary present in the pinned upstream schema.
 function matchesSchema(value, schema) {
   if (schema.oneOf) return schema.oneOf.filter(s => matchesSchema(value, s)).length === 1;
@@ -92,7 +93,7 @@ function normalizeRecord(source, record, root) {
   if (!locations.length) fail();
   const evidence = record.evidence ?? [];
   if (!Array.isArray(evidence) || evidence.some(v => !object(v) || typeof v.description !== 'string')) fail();
-  const canonicalEvidence = evidence.map(e => ({ ...location(e.file, e.line, e.line, 'evidence', root), description: text(e.description, true) }));
+  const canonicalEvidence = uniqueRecords(evidence.map(e => ({ ...location(e.file, e.line, e.line, 'evidence', root), description: text(e.description, true) })));
   const remediation = source === 'architect' ? text(record.suggestion_code) : text(record.remediation?.strategy);
   const reportedConfidence = record.confidence ?? null;
   if (reportedConfidence !== null && (!object(reportedConfidence) || !['low', 'medium', 'high'].includes(reportedConfidence.score) || typeof reportedConfidence.reason !== 'string')) fail();
@@ -106,8 +107,8 @@ function normalizeRecord(source, record, root) {
     conditions: record.conditions ?? [],
     execution: record.execution ?? null,
     severityAssessment: object(record.severity) ? record.severity : null,
-    trace: (record.trace || []).map(t => ({ ...t, file: canonicalizeFindingPath(t.file, root) })),
-    codeChanges: (record.remediation?.code_changes || []).map(c => ({ file: canonicalizeFindingPath(c.file_name, root), fixedCode: c.fixed_code }))
+    trace: uniqueRecords((record.trace || []).map(t => ({ ...t, file: canonicalizeFindingPath(t.file, root) }))),
+    codeChanges: uniqueRecords((record.remediation?.code_changes || []).map(c => ({ file: canonicalizeFindingPath(c.file_name, root), fixedCode: c.fixed_code })))
   } : null;
   const finding = { source, externalId: text(record.fingerprint) || null, verdict, severity, title, description, locations: [...new Map(locations.map(l => [stableSerialize(l), l])).values()].sort((a, b) => stableSerialize(a).localeCompare(stableSerialize(b))), evidence: canonicalEvidence, remediation, reportedConfidence, verification };
   const id = `${source}:${createHash('sha256').update(stableSerialize(finding)).digest('hex')}`;

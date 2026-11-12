@@ -1,5 +1,7 @@
 # Release validation — updated November 11, 2026
 
+This is a pre-merge validation snapshot. The additional PR review and regression requirements are recorded in `2026-11-11-pr-review.md`; [PR #1](https://github.com/poferraz/doublecheck/pull/1) carries the latest checks and merge state. Artifact changes after this snapshot supersede the historical package identity below.
+
 **Disposition: Doublecheck 0.2.0 is ready for release review, subject to green checks on the final PR head and explicit merge/tag/publication authorization.** The release branch is pushed and [PR #1](https://github.com/poferraz/doublecheck/pull/1) is open. Nothing has been merged, tagged or published. GitHub-hosted Ubuntu x64 passed all five Node matrix jobs and the native OCR mock contract on `b722126d193a5f9e29fef3aa694b1388093877c9`. Hosted Codex and Antigravity desktop activation passed bounded checks on two synthetic files. Other host exports retain their stated validation limits.
 
 ## Prepared 0.2.0 artifact and CI
@@ -8,7 +10,7 @@ The package and both lockfile roots are aligned at **0.2.0**. The changelog, sec
 
 The candidate tarball, exact hash, frozen source revision, per-file manifest, consumer results and `SHA256SUMS` are retained under `dist/release/0.2.0/`. The package is rebuilt after shipped documentation changes and verified against its frozen source. Consult `release-manifest.json` for the current artifact; the November 9 tarball and its local Ubuntu results are historical evidence, not the replacement artifact's identity.
 
-The November 11 replacement `poferraz-doublecheck-0.2.0.tgz` is 50,655 bytes and 36 files, SHA-256 `401982a4a4f67cd31a4483d89f0054a1547fe1a110a87bef3512264fdba302d8`. Exact offline installation, installed CLI and library checks pass on Node 20.0.0 and 26.12.0. All packaged files match the staged source; 17 local Markdown links and the unique fragment check resolve.
+The pre-review November 11 `poferraz-doublecheck-0.2.0.tgz` was 50,655 bytes and 36 files, SHA-256 `401982a4a4f67cd31a4483d89f0054a1547fe1a110a87bef3512264fdba302d8`, corresponding to head `44c9408`. It passed exact offline installation, installed CLI and library checks on Node 20.0.0 and 26.12.0. All packaged files matched the staged source; 17 local Markdown links and the unique fragment check resolved. The PR review fixes require a new package and manifest before later publication.
 
 GitHub-hosted x64 checks passed: [CI](https://github.com/poferraz/doublecheck/actions/runs/43118968164) and [Native OCR contract](https://github.com/poferraz/doublecheck/actions/runs/43118968231). The five matrix cells used Node 20.0.0, 20.20.2, 22.12.0, 24.22.2 and 26.13.0. All three development runtimes passed 222 full tests and 6 integration tests. The native workflow passed with OCR 1.13.3; its inner scan correctly returned 2 with unknown coverage. Machine-readable evidence is in `2026-11-11-github-ci.json`. Final-head checks are linked from the PR and recorded beside the final artifact.
 

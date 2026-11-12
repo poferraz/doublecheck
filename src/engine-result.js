@@ -139,24 +139,39 @@ export function validateCustomEngine(source, raw, target) {
     const n = normalizeFindings(source, raw, target);
     return validateEngineScope({ ...emptyEngine(source, 'partial', 'UNKNOWN_IMPORT_COVERAGE', target), findings: n.findings, diagnostics: [...n.diagnostics, diagnostic('UNKNOWN_IMPORT_COVERAGE', source)] }, target);
   }
-  if (!raw || raw.source !== source || !['complete', 'partial', 'skipped', 'failed'].includes(raw.status) || !Array.isArray(raw.findings) || !raw.provenance || !raw.coverage) throw new FindingValidationError();
+  if (!raw || raw.source !== source || !Array.isArray(raw.findings)) throw new FindingValidationError();
   if (raw.findings.length > 10_000) throw new FindingValidationError();
   const findings = []; const invalid = [];
   for (const [index, finding] of raw.findings.entries()) {
     try { findings.push(validateCanonicalFinding(source, finding, target)); }
     catch { invalid.push(diagnostic('INVALID_FINDING', source, index)); }
   }
-  const result = { ...emptyEngine(source, raw.status, null, target), findings, coverage: parseCoverage(raw.coverage, target.targetRoot), provenance: { ...emptyEngine(source, raw.status, null, target).provenance } };
+  const validStatus = ['complete', 'partial', 'skipped', 'failed'].includes(raw.status);
+  const result = { ...emptyEngine(source, validStatus ? raw.status : 'partial', null, target), findings };
+  const warn = code => {
+    result.diagnostics.push(diagnostic(code, source));
+    if (result.status !== 'failed') result.status = 'partial';
+  };
+  if (!validStatus) warn('INVALID_ENGINE_STATUS');
+  try {
+    if (!raw.coverage || ['selected', 'reviewed', 'failed', 'excluded'].some(k => !Array.isArray(raw.coverage[k]))) throw new FindingValidationError();
+    result.coverage = parseCoverage(raw.coverage, target.targetRoot);
+  } catch { warn('INVALID_ENGINE_COVERAGE'); }
+  const provenance = raw.provenance;
+  const validProvenance = provenance && typeof provenance === 'object' && !Array.isArray(provenance);
+  let invalidProvenance = !validProvenance;
   for (const key of ['tool', 'version', 'mode', 'targetRoot', 'revision', 'provider', 'endpoint', 'model']) {
-    const v = raw.provenance[key]; if (v != null && typeof v !== 'string') throw new FindingValidationError();
-    result.provenance[key] = v ?? null;
+    const v = validProvenance ? provenance[key] : null;
+    if (v != null && typeof v !== 'string') { invalidProvenance = true; result.provenance[key] = null; }
+    else result.provenance[key] = v ?? null;
   }
+  if (invalidProvenance) warn('INVALID_ENGINE_PROVENANCE');
   retainCustomMetadata(raw, result);
   if (invalid.length) {
     result.diagnostics.push(...invalid);
     if (result.status !== 'failed') result.status = 'partial';
   }
-  if (raw.provenance.targetRoot && raw.provenance.targetRoot !== target.targetRoot || raw.provenance.revision && raw.provenance.revision !== target.revision) {
+  if (result.provenance.targetRoot && result.provenance.targetRoot !== target.targetRoot || result.provenance.revision && result.provenance.revision !== target.revision) {
     result.status = 'partial'; result.diagnostics.push(diagnostic('TARGET_MISMATCH', source));
   }
   return validateEngineScope(result, target);

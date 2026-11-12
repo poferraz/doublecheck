@@ -56,13 +56,23 @@ function renderFinding(f) {
 }
 // Validate engine evidence and its aggregate together. A missing aggregate can be
 // reconstructed; contradictory copies keep all valid findings and lose gate eligibility.
-const blockingDiagnostics = new Set(['INVALID_REPORT_FINDING', 'INVALID_REPORT_ENGINE', 'INVALID_FINDING',
-  'INVALID_LEGACY_REPORT_INPUT', 'INCONSISTENT_REPORT_FINDINGS', 'OUT_OF_SCOPE_FINDING', 'TARGET_MISMATCH',
-  'INCOMPLETE_COVERAGE', 'COVERAGE_TARGET_MISMATCH', 'INVALID_REPORT_TARGET']);
+function informativeDiagnostic(d, requiredSources, engines) {
+  if (d.code === 'CORRELATIONS_TRUNCATED') return d.source === 'report';
+  return d.code === 'LENS_NOT_REQUESTED' &&
+    !requiredSources.includes(d.source) && engines.some(e => e.source === d.source && e.status === 'skipped');
+}
 const coverageDigest = files => ({ count: files.length, sha256: createHash('sha256').update(JSON.stringify([...files].sort())).digest('hex') });
 const isInScope = (file, target) => !target.selectedPath || file === target.selectedPath || target.selectionKind === 'directory' && file.startsWith(target.selectedPath + '/');
 function collectEvidence(results, snapshot) {
   const diagnostics = []; const engines = []; const fromEngines = [];
+  const mode = results.reviewMode ?? 'dual';
+  const requiredSources = mode === 'architect' ? ['architect'] : ['adversary', 'architect'];
+  if (Object.hasOwn(results, 'diagnostics')) {
+    if (!Array.isArray(results.diagnostics)) diagnostics.push(diagnostic('INVALID_REPORT_DIAGNOSTICS', 'report'));
+    else for (const d of results.diagnostics) {
+      diagnostics.push(object(d) && typeof d.code === 'string' && typeof d.source === 'string' ? d : diagnostic('INVALID_REPORT_DIAGNOSTICS', 'report'));
+    }
+  }
   let target = snapshot;
   if (!target) {
     try {
@@ -127,7 +137,7 @@ function collectEvidence(results, snapshot) {
       for (const f of engine.findings) fromEngines.push(f);
       engines.push(engine);
       for (const d of engine.diagnostics) {
-        if (object(d) && typeof d.code === 'string' && typeof d.source === 'string') diagnostics.push(d);
+        if (object(d) && typeof d.code === 'string' && d.source === engine.source) diagnostics.push(d);
         else diagnostics.push(diagnostic('INVALID_REPORT_ENGINE', 'report'));
       }
     } catch {
@@ -155,13 +165,12 @@ function collectEvidence(results, snapshot) {
     }
   }
   const findings = deduplicateFindings([...fromEngines, ...aggregate]);
-  const mode = results.reviewMode ?? 'dual';
-  const requiredSources = mode === 'architect' ? ['architect'] : ['adversary', 'architect'];
   const hasCompleteEvidence = ['architect', 'dual'].includes(mode) && requiredSources.every(source => {
     const requested = engines.filter(e => e.source === source);
     return requested.length === 1 && requested[0].status === 'complete' && isCompleteCoverage(requested[0].coverage);
   });
-  const invalidInput = diagnostics.some(d => blockingDiagnostics.has(d.code));
+  const invalidInput = diagnostics.some(d => !informativeDiagnostic(d, requiredSources, engines)) ||
+    results.errors != null && (!Array.isArray(results.errors) || results.errors.length > 0);
   const complete = results.status === 'complete' && hasCompleteEvidence && !invalidInput;
   const status = complete ? 'complete' : results.status === 'failed' ? 'failed' : 'partial';
   return { diagnostics, engines, findings, status, target };
@@ -189,11 +198,10 @@ export function getReviewExitCode(report) {
         !['file', 'directory'].includes(report.target.selectionKind) ||
         !object(report.target.coverageDigest) || !Number.isSafeInteger(report.target.coverageDigest.count) || report.target.coverageDigest.count < 1 ||
         !/^[a-f0-9]{64}$/.test(report.target.coverageDigest.sha256) ||
-        !Array.isArray(report.errors) || report.errors.some(e => typeof e !== 'string') ||
+        !Array.isArray(report.errors) || report.errors.length > 0 ||
         !Array.isArray(report.correlations) ||
         typeof report.target.selectedPath !== 'string' || path.isAbsolute(report.target.selectedPath) ||
-        report.target.selectedPath.split('/').includes('..') ||
-        report.diagnostics.some(d => !object(d) || typeof d.code !== 'string' || blockingDiagnostics.has(d.code))) return 2;
+        report.target.selectedPath.split('/').includes('..')) return 2;
     if (report.summary.targetPath !== path.join(report.target.targetRoot, report.target.selectedPath)) return 2;
     // Read the report-time snapshot. Writing the report itself may have changed the target.
     const evidence = collectEvidence(report, report.target);

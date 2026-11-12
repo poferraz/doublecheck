@@ -9,22 +9,22 @@ function recover(overrides = {}, mutate = () => {}) {
   const comments = [{ path: 'src/a.js', content: 'Concern', severity: 'medium' }];
   mutate(metadata, comments);
   return recoverScanSession({ target: { targetRoot: root, selectedPath: 'src' }, model: 'test-local', startedAt, finishedAt: startedAt + 10000, before: new Set(), stderr: marker,
-    runner: (_cmd, args, options) => {
+    runner: async (_cmd, args, options) => {
       expect(options.timeout).toBe(3000); expect(options.maxBuffer).toBe(16 * 1024 * 1024);
       expect(args).toContain(root);
       return JSON.stringify(args[1] === 'show' ? metadata : comments);
     }, ...overrides });
 }
-it('recovers the explicitly identified new session with matching metadata', () => {
-  const result = recover();
+it('recovers the explicitly identified new session with matching metadata', async () => {
+  const result = await recover();
   expect(result.sessionId).toBe(id); expect(result.completedFiles).toEqual(['src/a.js']);
   expect(result.findings[0].verdict).toBe('needs_validation');
 });
-it('rejects missing, conflicting, and stale session identity', () => {
-  for (const options of [{ stderr: '' }, { stderr: marker + marker.replaceAll(id, 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa') }, { before: new Set([id]) }, { before: null }]) expect(recover(options)).toBeNull();
+it('rejects missing, conflicting, and stale session identity', async () => {
+  for (const options of [{ stderr: '' }, { stderr: marker + marker.replaceAll(id, 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa') }, { before: new Set([id]) }, { before: null }]) expect(await recover(options)).toBeNull();
 });
-it.each(['model', 'repo', 'time', 'mode', 'id', 'outside', 'count', 'payload'])('rejects mismatching or malformed session %s', kind => {
-  expect(recover({}, (data, comments) => {
+it.each(['model', 'repo', 'time', 'mode', 'id', 'outside', 'count', 'payload'])('rejects mismatching or malformed session %s', async kind => {
+  expect(await recover({}, (data, comments) => {
     if (kind === 'model') data.summary.model = 'different';
     if (kind === 'repo') data.summary.repo_dir = '/tmp/other';
     if (kind === 'time') data.summary.start_time = '2020-01-01T00:00:00Z';
@@ -35,11 +35,11 @@ it.each(['model', 'repo', 'time', 'mode', 'id', 'outside', 'count', 'payload'])(
     if (kind === 'payload') comments[0] = null;
   })).toBeNull();
 });
-it('fails closed when the pre-run session inventory is unavailable', () => {
-  expect(snapshotSessionIds(() => { throw Error('secret'); }, root)).toBeNull();
-  expect(snapshotSessionIds(() => JSON.stringify([{ session_id: id }]), root)).toEqual(new Set([id]));
+it('fails closed when the pre-run session inventory is unavailable', async () => {
+  expect(await snapshotSessionIds(async () => { throw Error('secret'); }, root)).toBeNull();
+  expect(await snapshotSessionIds(async () => JSON.stringify([{ session_id: id }]), root)).toEqual(new Set([id]));
 });
-it.each([{}, { startedAt: undefined }, { startedAt: NaN }, { finishedAt: undefined }, { finishedAt: Infinity }, { startedAt: startedAt + 20000 }])('rejects invalid ownership bounds %j', options => {
+it.each([{}, { startedAt: undefined }, { startedAt: NaN }, { finishedAt: undefined }, { finishedAt: Infinity }, { startedAt: startedAt + 20000 }])('rejects invalid ownership bounds %j', async options => {
   if (!Object.keys(options).length) options = { startedAt: undefined, finishedAt: undefined };
-  expect(recover(options)).toBeNull();
+  expect(await recover(options)).toBeNull();
 });

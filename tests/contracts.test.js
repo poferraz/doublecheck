@@ -5,6 +5,9 @@ import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { stableSerialize } from '../src/contracts.js';
 import { validateCanonicalFinding, validateCustomEngine } from '../src/engine-result.js';
+import { runDualAudit } from '../src/orchestrator.js';
+import { synthesizeReport, getReviewExitCode } from '../src/reporter.js';
+import { completeEngine } from './helpers/results.js';
 const root = path.resolve('/tmp/example');
 const legacy = (overrides = {}) => ({ title: 'Issue', file: 'src/a.js', line: 10, severity: 'HIGH', description: 'Unsafe boundary', ...overrides });
 const norm = records => normalizeFindings('adversary', records, { targetRoot: root });
@@ -68,4 +71,79 @@ it('applies the upstream proof contract to canonical adversary verdicts and pres
   expect(engine.findings).toEqual([confirmed]);
   expect(engine.status).toBe('partial');
   expect(engine.diagnostics.filter(d=>d.code==='INVALID_FINDING').map(d=>d.recordIndex)).toEqual([0,1]);
+});
+
+it.each([
+  ['trace', 'absolute'], ['trace', 'relative'],
+  ['evidence', 'absolute'], ['evidence', 'relative'],
+  ['codeChanges', 'absolute and relative']
+])('retains confirmed %s through %s path aliases and report serialization', (key, aliasKind) => {
+  const raw = JSON.parse(fs.readFileSync('tests/fixtures/findings/cloudflare-confirmed.json'))[0];
+  if (key !== 'codeChanges') {
+    const alias = { ...raw[key][0], file: aliasKind === 'absolute' ? path.join(process.cwd(), raw[key][0].file) : './' + raw[key][0].file };
+    raw[key].push(alias, { ...alias, description: 'Distinct supporting observation' });
+  } else {
+    raw.remediation.code_changes = [
+      { file_name: 'src/a.js', fixed_code: 'first fix' },
+      { file_name: path.join(process.cwd(), 'src/a.js'), fixed_code: 'first fix' },
+      { file_name: './src/a.js', fixed_code: 'second fix' }
+    ];
+  }
+  const target = { targetRoot: process.cwd() };
+  const normalized = normalizeFindings('adversary', [raw], target);
+  expect(normalized.invalidRecordCount).toBe(0);
+  const finding = normalized.findings[0];
+  if (key === 'trace') expect(finding.verification.trace).toHaveLength(3);
+  if (key === 'evidence') expect(finding.evidence).toHaveLength(2);
+  if (key === 'codeChanges') expect(finding.verification.codeChanges).toEqual([
+    { file: 'src/a.js', fixedCode: 'first fix' },
+    { file: 'src/a.js', fixedCode: 'second fix' }
+  ]);
+  expect(() => validateCanonicalFinding('adversary', finding, target)).not.toThrow();
+  const report = JSON.parse(JSON.stringify(synthesizeReport({ targetPath: '.', status: 'partial', findings: [finding] }).json));
+  expect(report.p1).toHaveLength(1);
+  if (key === 'trace') expect(report.p1[0].verification.trace[2].description).toBe('Distinct supporting observation');
+  if (key === 'evidence') expect(report.p1[0].evidence[1].description).toBe('Distinct supporting observation');
+  if (key === 'codeChanges') expect(report.p1[0].verification.codeChanges[1].fixedCode).toBe('second fix');
+});
+
+it.each(['trace', 'evidence'])('still rejects exact upstream duplicates in %s', key => {
+  const raw = JSON.parse(fs.readFileSync('tests/fixtures/findings/cloudflare-confirmed.json'))[0];
+  raw[key].push({ ...raw[key][0] });
+  expect(norm([raw]).invalidRecordCount).toBe(1);
+});
+
+it.each([
+  ['escaped coverage', e => { e.coverage.selected = ['../outside']; }, 'INVALID_ENGINE_COVERAGE'],
+  ['inconsistent coverage', e => { e.coverage.selected = ['src/reporter.js']; }, 'INVALID_ENGINE_COVERAGE'],
+  ['missing coverage', e => { delete e.coverage; }, 'INVALID_ENGINE_COVERAGE'],
+  ['unknown status', e => { e.status = 'uncertain'; }, 'INVALID_ENGINE_STATUS'],
+  ['missing status', e => { delete e.status; }, 'INVALID_ENGINE_STATUS'],
+  ['non-object provenance', e => { e.provenance = 'opaque'; }, 'INVALID_ENGINE_PROVENANCE'],
+  ['malformed provenance field', e => { e.provenance.model = {}; }, 'INVALID_ENGINE_PROVENANCE'],
+  ['missing provenance', e => { delete e.provenance; }, 'INVALID_ENGINE_PROVENANCE']
+])('preserves a confirmed blocker despite %s', async (_, mutate, code) => {
+  const raw = JSON.parse(fs.readFileSync('tests/fixtures/findings/cloudflare-confirmed.json', 'utf8').replaceAll('src/a.js', 'src/cli.js'))[0];
+  const adversary = completeEngine('adversary', [raw]);
+  mutate(adversary);
+  const audit = await runDualAudit('src/cli.js', {
+    cloudflareRunner: async () => adversary,
+    alibabaRunner: async () => completeEngine()
+  });
+  const report = synthesizeReport(audit).json;
+  expect(report.p1).toHaveLength(1);
+  expect(report.p1[0].title).toBe('Boundary issue');
+  expect(report.engines[0].diagnostics.some(d => d.code === code)).toBe(true);
+  expect(report.status).toBe('partial');
+  expect(getReviewExitCode(report)).toBe(2);
+});
+
+it('retains valid provenance fields after an earlier malformed field', () => {
+  const raw = completeEngine();
+  raw.provenance.tool = {};
+  raw.provenance.version = 'known-version';
+  const engine = validateCustomEngine('architect', raw, { targetRoot: process.cwd(), selectedPath: 'src/cli.js', revision: null });
+  expect(engine.provenance.version).toBe('known-version');
+  expect(engine.provenance.targetRoot).toBe(process.cwd());
+  expect(engine.status).toBe('partial');
 });

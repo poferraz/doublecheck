@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { createOcrRunner } from './ocr-process.js';
 import { listInstalledModels, resolveInferencePolicy } from './inference-policy.js';
 const preferred = ['qwen2.5-coder:32b', 'qwen2.5-coder:14b', 'qwen2.5-coder:7b', 'deepseek-coder', 'codestral', 'llama3'];
 export const isSupportedOcrVersion = output => /^open-code-review v1\.13\.3(?:\s|$)/.test(String(output));
@@ -35,7 +35,7 @@ export async function checkEnvironment(options = {}) {
     errors.push('Inference preflight failed. Check the endpoint, installed model, --allow-remote, and matching custom OCR provider configuration.');
   }
   try {
-    const version = (options.execFileSync || execFileSync)('ocr', ['version'], { stdio: 'pipe', encoding: 'utf8', timeout: 3000, maxBuffer: 65536, env: { ...process.env, OCR_NO_UPDATE: '1' } });
+    const version = await createOcrRunner(options.execFileSync)('ocr', ['version'], { stdio: 'pipe', encoding: 'utf8', timeout: 3000, maxBuffer: 65536 });
     if (!isSupportedOcrVersion(version)) throw Error('Unsupported version');
     ocrAvailable = true;
   } catch { errors.push('Alibaba OCR 1.13.3 is required; other versions need conformance verification.'); }

@@ -8,7 +8,8 @@ This document configures automated code review behaviors for Claude Code Review 
 
 1. **Child Process Execution & Command Injection:**
    - Never use string interpolation inside shell executors (`execSync`, `exec`).
-   - Always use `execFileSync` with discrete, parameterized argument arrays.
+   - Use `execFileSync` or `spawn` with discrete, parameterized argument arrays and no shell.
+   - Bound subprocess duration and output; OCR deadlines must terminate its launcher and child processes rather than depend on graceful termination.
    - User-supplied paths, model identifiers, or repository URLs must never be passed to a shell without isolation.
 
 2. **Temporary File & Filesystem Sandboxing:**

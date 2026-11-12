@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Prepared for release; publication and tagging are separate actions.
 
 ### Audit remediation
+- Reject failure diagnostics and nonempty error lists in complete report gates, including after JSON serialization.
+- Preserve confirmed findings through canonical path-alias deduplication and malformed custom-engine coverage/provenance.
+- Enforce native process deadlines across the OCR launcher and descendants instead of waiting for cooperative termination.
 - Correct Antigravity 2 skill installation guidance to the current project discovery path, observed in the host's built-in customization guide.
 - Block reserved OCR provider-name collisions and explicitly reported remote models without consent; recheck installed model routing before native execution.
 - Reject OCR selectors that reinterpret literal filenames, bind complete manifests to the real selected files, and preserve in-scope findings with labeled supporting files.

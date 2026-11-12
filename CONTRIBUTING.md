@@ -13,7 +13,7 @@ Write a failing behavior regression before changing runtime behavior, then run t
 
 Keep zero runtime npm dependencies and only Vitest as a direct devDependency. Use parameterized child-process calls, bounded operations, and cleanup in finally blocks. Preserve finding identities, verification states, and unknown coverage. Review instructions are in root REVIEW.md; a file alone does not enable a hosted review service.
 
-The ordinary CI workflow tests supported development runtimes and packages the CLI for Node 20.0.0/20.x smoke without devDependencies. The separate manual native OCR workflow installs exact OCR 1.13.3 in a disposable runner and uses a loopback mock model server. Native output, host discovery, and live model quality are separate evidence categories; do not claim an unexecuted check passed.
+The ordinary CI workflow tests supported development runtimes and packages the CLI for Node 20.0.0/20.x smoke without devDependencies. The separate native OCR workflow runs on pull requests or manual dispatch, installs exact OCR 1.13.3 in a disposable runner and uses a loopback mock model server. Native output, host discovery, and live model quality are separate evidence categories; do not claim an unexecuted check passed.
 
 The generic REVIEW.md template is src/templates/REVIEW.md. Both generators must consume it. Generate exports with `bash scripts/convert.sh all --output-dir /tmp/doublecheck-platforms` and verify links before distributing them. Avoid replacing existing host/project instructions.
 
