@@ -1,12 +1,12 @@
 # Alibaba Open Code Review AST & Defect Rulesets
 
-The principal engineer lens in `doublecheck` enforces production code quality, stability, and defensive programming standards:
+The principal engineer lens in `doublecheck` uses these investigation prompts for correctness and lifecycle review. They are not an exhaustive AST ruleset or a guarantee that every pattern is defective:
 
 ---
 
 ## 1. Null & Undefined Safety
 - **Unchecked Property Dereference:** Accessing nested properties (`a.b.c`) without optional chaining or null guards on parameters from untrusted or external callers.
-- **Nullish Coalescing Bugs:** Using `val ?? fallback` on functions returning `undefined` by specification, causing unintended fallback evaluation.
+- **Nullish Coalescing Bugs:** Verify nullish fallback behavior against intent; `undefined ?? fallback` is ordinary behavior, not inherently a defect.
 - **Missing Default Configuration Merging:** Functions accepting partial configuration objects (`thresholds = DEFAULT_THRESHOLDS`) that fail to merge caller overrides over defaults (`{ ...DEFAULT_THRESHOLDS, ...thresholds }`), resulting in runtime `TypeError` on omitted keys.
 
 ---
@@ -27,4 +27,4 @@ The principal engineer lens in `doublecheck` enforces production code quality, s
 
 ## 4. Resource Leaks & Lifecycle Management
 - **Unbounded Event Listeners:** Attaching listeners to global objects (`window`, `document`) inside components or repeat functions without removal on unmount/cleanup.
-- **Mutable Exported Constants:** Exporting mutable objects or arrays (`export const FIELDS = [...]`) instead of freezing them with `Object.freeze(...)`.
+- **Mutable Exported Constants:** Exporting mutable objects or arrays (`export const FIELDS = [...]`) when callers rely on immutability; const bindings and shallow freezing do not imply deep immutability.

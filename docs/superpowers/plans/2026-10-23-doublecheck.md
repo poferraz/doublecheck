@@ -1,5 +1,6 @@
 # `doublecheck` Implementation Plan
 
+> Historical document: runtime, confidence, privacy, CLI, and review-file guidance may be superseded. See the current README.md and the 2026-10-24 review-reliability remediation plan. Original approvals/checklists below are preserved as history.
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build and publish `doublecheck`, a professional open-source toolkit and Agent Skill that orchestrates Cloudflare Security Audit and Alibaba Open Code Review into a unified, zero-cost, multi-perspective code audit with convergence detection.

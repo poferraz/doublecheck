@@ -11,8 +11,8 @@ A clear and concise description of what the bug is.
 
 **To Reproduce**
 Steps to reproduce the behavior:
-1. Run command: `npx @poferraz/doublecheck [path] [flags]`
-2. Local Ollama model used: (e.g. `deepseek-v4.1-flash:1017-cloud`, `qwen2.5-coder:14b`)
+1. Run command: `node ./bin/doublecheck.js [path] [flags]`
+2. Ollama model used and remote opt-in, if applicable: (e.g. `qwen2.5-coder:14b`)
 3. See error or unexpected output
 
 **Expected Behavior**

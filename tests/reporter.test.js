@@ -1,78 +1,117 @@
-import { describe, it, expect } from 'vitest';
-import { detectConvergence, synthesizeReport, normalizePath } from '../src/reporter.js';
+import { it, expect } from 'vitest';
+import fs from 'node:fs';
+import { synthesizeReport, normalizePath } from '../src/reporter.js';
+import { completeEngine } from './helpers/results.js';
+import { normalizeFindings } from '../src/contracts.js';
+const upstream = () => JSON.parse(fs.readFileSync('tests/fixtures/findings/cloudflare-confirmed.json'))[0];
+const normalize = records => normalizeFindings('adversary', records, { targetRoot: process.cwd() }).findings;
+it('keeps rejected and unverified records outside confirmed buckets', () => {
+  const rejected = JSON.parse(fs.readFileSync('tests/fixtures/findings/cloudflare-rejected.json'));
+  const findings = [...normalize([upstream()]), ...normalize(rejected), ...normalize([{ title: 'Candidate', file: 'src/a.js', line: 20, severity: 'high' }])];
+  const report = synthesizeReport({ status: 'partial', findings, engines: [], targetPath: '.', timestamp: 'test' });
+  expect(report.p1Count).toBe(1); expect(report.p0Count).toBe(0);
+  expect(report.json.rejected).toHaveLength(1); expect(report.json.unresolved).toHaveLength(1);
+  expect(report.json.findings).toHaveLength(3);
+  expect(report.markdown).toContain('Review incomplete');
+});
+it('same title and overlap never drop a distinct critical issue', () => {
+  const a = upstream(); const b = upstream(); b.trace[0].file = 'src/b.js'; b.trace[1].file = 'src/b.js'; b.evidence[0].file = 'src/b.js'; b.severity.overall_severity = 'CRITICAL';
+  const findings = [...normalize([a, b, a]), ...normalizeFindings('architect', [{ path: 'src/a.js', start_line: 20, content: 'Concern', severity: 'low' }], { targetRoot: process.cwd() }).findings];
+  const report = synthesizeReport({ status: 'complete', findings, engines: [] });
+  expect(report.p0Count).toBe(1); expect(report.p1Count).toBe(1);
+  expect(report.json.findings).toHaveLength(3); expect(report.json.correlations).toHaveLength(1);
+  expect(report.json.schemaVersion).toBe('doublecheck/report/v2');
+  expect(report.json.summary.convergedDefects).toBeUndefined();
+});
+it('preserves missing severity and escapes external markup and fenced remediation', () => {
+  const records = [{ title: '<img src=x>\n# forged', file: 'src/a.js', line: 10, description: '**fake** | row\n# injected', remediation: { strategy: '```\n# code fence escape' } }];
+  const report = synthesizeReport({ status: 'partial', findings: normalize(records), engines: [] });
+  expect(report.json.unresolved[0].severity).toBeNull();
+  expect(report.markdown).not.toContain('<img'); expect(report.markdown).not.toContain('\n# injected');
+  expect(report.markdown).toContain('Unrated'); expect(report.markdown).toContain('````');
+});
+it('display path normalization is not a containment check', () => {
+  expect(normalizePath('src\\a.js')).toBe('src/a.js');
+  expect(normalizePath('../../outside.js')).toBe('../../outside.js');
+});
+it('does not trust a complete label without evidence for the requested engines', () => {
+  const report = synthesizeReport({ status: 'complete', findings: [], engines: [] });
+  expect(report.json.status).toBe('partial');
+});
+it('retains rejected reasons and unresolved validation requirements', () => {
+  const rejected = JSON.parse(fs.readFileSync('tests/fixtures/findings/cloudflare-rejected.json'));
+  const pending = JSON.parse(fs.readFileSync('tests/fixtures/findings/cloudflare-needs-validation.json'));
+  const report = synthesizeReport({ status: 'partial', findings: normalize([...rejected, ...pending]), engines: [] });
+  expect(report.json.rejected[0].verification.rejectionReason).toBe('Guard prevents access');
+  expect(report.json.unresolved[0].verification.blockers).toEqual(['Runtime unknown']);
+  expect(report.markdown).toContain('Guard prevents access');
+});
+it('shows requested routing and recovered execution context separately from reported identity', () => {
+  const report = synthesizeReport({ status: 'partial', reviewMode: 'architect', findings: [], engines: [{ source: 'architect', status: 'partial', coverage: { origin: 'unknown', reviewed: null }, provenance: { provider: null, model: null }, requestedInference: { provider: 'ollama', model: 'test-local', endpoint: 'http://localhost:11434' }, execution: { status: 'timed_out', timeoutMs: 60000, elapsedMs: 60001, sessionId: 'fixture-session', completedFiles: ['src/a.js'] } }] });
+  expect(report.markdown).toContain('timed\\_out');
+  expect(report.markdown).toContain('Requested provider: ollama');
+  expect(report.markdown).toContain('fixture\\-session');
+});
 
-describe('Convergence Synthesizer & Reporter', () => {
-  const sampleCloudflare = [
-    {
-      fingerprint: 'treeways:dom-xss',
-      title: 'DOM XSS via innerHTML in Fatal Handler',
-      file: 'src/main.js',
-      line: 379,
-      attack_class: 'CLIENT-SIDE',
-      severity: { overall_severity: 'high' },
-      remediation: { strategy: 'Use textContent instead of innerHTML' }
-    },
-    {
-      fingerprint: 'github-stars:open-ssrf',
-      title: 'Unrestricted SSRF in AI Gateway',
-      file: 'api/ai-proxy.js',
-      line: 41,
-      attack_class: 'CLOUD-AND-DEPLOYMENT',
-      severity: { overall_severity: 'critical' },
-      remediation: { strategy: 'Add destination host allowlist' }
-    }
-  ];
+it('diagnoses malformed canonical records while retaining valid siblings and preventing completion', () => {
+  const valid = normalize([upstream()])[0];
+  const report = synthesizeReport({ status: 'complete', reviewMode: 'architect', engines: [completeEngine()], findings: [null, {}, { ...valid, title: 'tampered identity' }, valid] });
+  expect(report.json.findings).toEqual([valid]);
+  expect(report.json.diagnostics.filter(d => d.code === 'INVALID_REPORT_FINDING')).toHaveLength(3);
+  expect(report.json.status).toBe('partial');
+});
+it('diagnoses malformed engine objects without crashing or claiming completion', () => {
+  const report = synthesizeReport({ status: 'complete', findings: [], engines: [null, { source: 'architect', status: 'complete' }] });
+  expect(report.json.status).toBe('partial');
+  expect(report.json.diagnostics.some(d => d.code === 'INVALID_REPORT_ENGINE')).toBe(true);
+});
+it.each([null, {}, '../escape.js', 12])('does not certify malformed coverage path %j', file => {
+  const engine = completeEngine(); engine.coverage.selected = [file]; engine.coverage.reviewed = [file];
+  const report = synthesizeReport({ status: 'complete', reviewMode: 'architect', findings: [], engines: [engine] });
+  expect(report.json.status).toBe('partial');
+  expect(report.json.diagnostics.some(d => d.code === 'INVALID_REPORT_ENGINE')).toBe(true);
+});
+it.each(['provenance', 'requestedInference', 'execution'])('diagnoses malformed displayed %s while retaining valid finding siblings', key => {
+  const valid = normalize([upstream()])[0]; const engine = completeEngine();
+  engine[key] = key === 'execution' ? { status: { toString: null } } : { model: { toString: null } };
+  const report = synthesizeReport({ status: 'complete', reviewMode: 'architect', findings: [valid], engines: [engine] });
+  expect(report.json.findings).toEqual([valid]); expect(report.json.status).toBe('partial');
+  expect(report.json.diagnostics.some(d => d.code === 'INVALID_REPORT_ENGINE')).toBe(true);
+});
 
-  const sampleAlibaba = [
-    {
-      path: 'src/main.js',
-      start_line: 378,
-      end_line: 379,
-      category: 'security',
-      severity: 'critical',
-      content: 'Direct innerHTML assignment with unescaped error message introduces DOM XSS.'
-    },
-    {
-      path: 'src/domain/giant.js',
-      start_line: 3,
-      end_line: 10,
-      category: 'bug',
-      severity: 'high',
-      content: 'Partial threshold objects not merged with defaults, throwing unhandled TypeError.'
-    }
-  ];
+it('preserves a valid report with enough backtick runs to overflow an argument spread', () => {
+  const raw = upstream();
+  raw.remediation.strategy = '`x'.repeat(140_000);
+  const report = synthesizeReport({ cloudflareFindings: [raw] });
+  expect(report.json.p1[0].remediation).toBe(raw.remediation.strategy);
+  expect(report.markdown).toContain(raw.remediation.strategy);
+});
 
-  it('detects convergence when both engines flag overlapping lines in the same file', () => {
-    const converged = detectConvergence(sampleCloudflare, sampleAlibaba);
+it('links each correlation to the exact finding and shows bounded confirmation evidence', () => {
+  const raw = upstream();
+  const longInstruction = 'X'.repeat(2000);
+  raw.execution.instructions.push(longInstruction);
+  const report = synthesizeReport({ cloudflareFindings: [raw], alibabaComments: [{ path: 'src/a.js', start_line: 20, content: 'overlap' }] });
+  expect(report.json.correlations).toHaveLength(1);
+  const links = [...report.markdown.matchAll(/\]\(#(finding-[a-f0-9]+)\)/g)].map(m => m[1]);
+  expect(new Set(links).size).toBe(2);
+  for (const id of links) expect(report.markdown).toContain(`<a id="${id}"></a>`);
+  expect(report.markdown).toContain(raw.execution.observed_result);
+  expect(report.markdown).toContain(raw.execution.instructions[0]);
+  expect(report.markdown).not.toContain(longInstruction);
+  expect(report.json.p1[0].verification.execution.instructions).toContain(longInstruction);
+});
 
-    expect(converged).toHaveLength(1);
-    expect(converged[0].file).toContain('src/main.js');
-    expect(converged[0].cfFinding.title).toContain('DOM XSS');
-    expect(converged[0].aliComment.content).toContain('DOM XSS');
-  });
-
-  it('synthesizes a structured report with P0, P1, and P2 priority categorizations', () => {
-    const report = synthesizeReport({
-      targetPath: '/my-project',
-      modelUsed: 'deepseek-v4.1-flash',
-      cloudflareFindings: sampleCloudflare,
-      alibabaComments: sampleAlibaba,
-      errors: []
-    });
-
-    expect(report.convergedCount).toBe(1);
-    expect(report.p0Count).toBeGreaterThanOrEqual(1); // Converged + Critical
-    expect(report.markdown).toContain('# `doublecheck` Audit Report');
-    expect(report.markdown).toContain('Convergence Matrix');
-    expect(report.markdown).toContain('Priority 0 (Immediate Fixes)');
-    expect(report.json).toBeDefined();
-    expect(report.json.summary.convergedDefects).toBe(1);
-  });
-
-  it('normalizes paths safely and strips relative path traversal sequences', () => {
-    expect(normalizePath('../../etc/passwd')).toBe('etc/passwd');
-    expect(normalizePath('..\\..\\secret.js')).toBe('secret.js');
-    expect(normalizePath('./src/main.js')).toBe('src/main.js');
-    expect(normalizePath('src/../main.js')).toBe('main.js');
-  });
+it('discloses bounded overlap output and retains every finding at heavily shared locations', () => {
+  const a = []; const b = [];
+  for (let i = 0; i < 100; i++) {
+    a.push({ title: 'A' + i, file: 'src/a.js', line: 10 });
+    b.push({ path: 'src/a.js', start_line: 10, content: 'B' + i });
+  }
+  const report = synthesizeReport({ cloudflareFindings: a, alibabaComments: b });
+  expect(report.json.correlations.length).toBeLessThan(10_000);
+  expect(report.json.correlationSummary.truncated).toBe(true);
+  expect(report.json.findings).toHaveLength(200);
+  expect(report.markdown).toMatch(/additional overlaps.*omitted/i);
+  expect(report.json.diagnostics.some(d => d.code === 'CORRELATIONS_TRUNCATED')).toBe(true);
 });

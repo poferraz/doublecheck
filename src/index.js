@@ -15,3 +15,6 @@ export {
   printHelp,
   generateDefaultReviewMd
 } from './cli.js';
+export { normalizeFindings, canonicalizeFindingPath, FindingValidationError } from './contracts.js';
+export { getReviewExitCode } from './reporter.js';
+export { resolveAuditTarget } from './orchestrator.js';

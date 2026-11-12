@@ -1,0 +1,141 @@
+{
+  "date": "2026-11-09",
+  "kind": "live cloud timeout on synthetic fixture",
+  "cliExitCode": 2,
+  "source": "// Synthetic release-check fixture; no credentials or real application data.\nexport function handleRequest(req, res) {\n  const code = new URL(req.url, 'http://fixture.invalid').searchParams.get('code');\n  res.end(String(eval(code)));\n}\n",
+  "report": {
+    "schemaVersion": "doublecheck/report/v2",
+    "target": {
+      "targetRoot": "/private/tmp/doublecheck-live-ckTA1p/timeout-project",
+      "selectedPath": "request-handler.js",
+      "revision": null,
+      "selectionKind": "file"
+    },
+    "status": "failed",
+    "reviewMode": "architect",
+    "summary": {
+      "targetPath": "/private/tmp/doublecheck-live-ckTA1p/timeout-project/request-handler.js",
+      "timestamp": "2026-11-10T02:00:05.826Z",
+      "p0Count": 0,
+      "p1Count": 0,
+      "p2Count": 0,
+      "unresolvedCount": 0,
+      "rejectedCount": 0
+    },
+    "engines": [
+      {
+        "source": "adversary",
+        "status": "skipped",
+        "findings": [],
+        "diagnostics": [
+          {
+            "code": "LENS_NOT_REQUESTED",
+            "source": "adversary",
+            "message": "Review diagnostic: LENS_NOT_REQUESTED"
+          }
+        ],
+        "coverage": {
+          "selected": null,
+          "reviewed": null,
+          "failed": null,
+          "excluded": null,
+          "origin": "unknown"
+        },
+        "provenance": {
+          "tool": "cloudflare-findings",
+          "version": null,
+          "mode": "custom",
+          "targetRoot": "/private/tmp/doublecheck-live-ckTA1p/timeout-project",
+          "revision": null,
+          "provider": null,
+          "endpoint": null,
+          "model": null
+        }
+      },
+      {
+        "source": "architect",
+        "status": "failed",
+        "findings": [],
+        "diagnostics": [
+          {
+            "code": "OCR_PROCESS_TIMEOUT",
+            "source": "architect",
+            "message": "Review diagnostic: OCR_PROCESS_TIMEOUT"
+          },
+          {
+            "code": "MISSING_OCR_OUTPUT",
+            "source": "architect",
+            "message": "Review diagnostic: MISSING_OCR_OUTPUT"
+          }
+        ],
+        "coverage": {
+          "selected": null,
+          "reviewed": null,
+          "failed": null,
+          "excluded": null,
+          "origin": "unknown"
+        },
+        "provenance": {
+          "tool": "ocr",
+          "version": "1.13.3",
+          "mode": "native",
+          "targetRoot": "/private/tmp/doublecheck-live-ckTA1p/timeout-project",
+          "revision": null,
+          "provider": null,
+          "endpoint": null,
+          "model": null
+        },
+        "execution": {
+          "status": "timed_out",
+          "timeoutMs": 1000,
+          "elapsedMs": 1008,
+          "sessionId": null,
+          "completedFiles": null
+        },
+        "requestedInference": {
+          "provider": "ollama",
+          "endpoint": "http://localhost:11434",
+          "model": "deepseek-v4.1-flash:1017-cloud",
+          "route": "loopback",
+          "locality": "unverified",
+          "warnings": [
+            "Ollama reports remote model backing; remote routing was allowed."
+          ]
+        }
+      }
+    ],
+    "findings": [],
+    "correlations": [],
+    "correlationSummary": {
+      "truncated": false,
+      "limit": 1000,
+      "comparisonLimit": 10000
+    },
+    "p0": [],
+    "p1": [],
+    "p2": [],
+    "unrated": [],
+    "unresolved": [],
+    "rejected": [],
+    "diagnostics": [
+      {
+        "code": "LENS_NOT_REQUESTED",
+        "source": "adversary",
+        "message": "Review diagnostic: LENS_NOT_REQUESTED"
+      },
+      {
+        "code": "OCR_PROCESS_TIMEOUT",
+        "source": "architect",
+        "message": "Review diagnostic: OCR_PROCESS_TIMEOUT"
+      },
+      {
+        "code": "MISSING_OCR_OUTPUT",
+        "source": "architect",
+        "message": "Review diagnostic: MISSING_OCR_OUTPUT"
+      }
+    ],
+    "errors": [
+      "architect review failed"
+    ]
+  }
+}

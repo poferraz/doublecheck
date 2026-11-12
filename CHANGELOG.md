@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+## [0.2.0] - 2026-11-09
+
+Prepared for release; publication and tagging are separate actions.
+
+### Audit remediation
+- Reject failure diagnostics and nonempty error lists in complete report gates, including after JSON serialization.
+- Preserve confirmed findings through canonical path-alias deduplication and malformed custom-engine coverage/provenance.
+- Enforce native process deadlines across the OCR launcher and descendants instead of waiting for cooperative termination.
+- Correct Antigravity 2 skill installation guidance to the current project discovery path, observed in the host's built-in customization guide.
+- Block reserved OCR provider-name collisions and explicitly reported remote models without consent; recheck installed model routing before native execution.
+- Reject OCR selectors that reinterpret literal filenames, bind complete manifests to the real selected files, and preserve in-scope findings with labeled supporting files.
+- Reconcile report and engine findings, retain blockers on inconsistent input, and fail closed when the library exit helper receives an invalid report or raw audit result.
+- Preserve imported findings when native preflight is unavailable; reject conflicting doctor/init operations and provide safe actionable CLI messages.
+- Bound correlation work/output, avoid argument-stack overflow in remediation rendering, reject special findings files, and skip Markdown rendering for JSON-only output.
+- Enforce OCR 1.13.3 in direct library scans and suppress its automatic updater for managed invocations.
+- Validate canonical verdict evidence; malformed custom findings retain valid siblings and prevent a complete review.
+- Preserve existing agent exports, refuse unsafe destinations, emit a discoverable Cursor `.mdc` rule, and print non-clobbering review-policy installation guidance.
+- Repair checkout invocation guidance and packaged documentation links; render finding IDs, bounded reproduction evidence and unknown-coverage guidance.
+
+- Auto-select an installed model compatible with the selected provider; accept the default `:latest` alias while retaining explicit model and cloud-consent boundaries.
+- Recover owned saved sessions after failed scans leave truncated/malformed output; reject invalid recovery time windows.
+- Refuse invalid complete-engine fixtures and incomplete agent exports; harden mock inference requests and IPC startup waits.
+
+
+- Added a configurable 20-minute overall native scan deadline, timeout diagnostics, and separately labeled requested inference/execution context.
+- Added conservative recovery of newly created OCR sessions identified by the failed process, retaining partial/unknown coverage.
+- Fixed inherited-property bypasses in pinned-schema validation and diagnosed malformed canonical report inputs while preserving valid siblings.
+
+
+### Changed
+- Report schema v2 preserves verification states, canonical findings, exact location correlations, and per-engine coverage/provenance.
+- Incomplete reviews and blocking unresolved candidates exit 2; complete confirmed high/critical reviews exit 1. Correlation no longer escalates severity or implies calibrated confidence.
+- Native OCR 1.13.3 full-file scan coverage remains unknown/partial; the adversary adapter is explicitly import-only.
+- Inference requires matching named custom-provider configuration and explicit remote opt-in. Empty models/missing OCR fail preflight.
+- Strict CLI arguments, distinct staged report outputs, root REVIEW.md initialization with overwrite protection, shared generic template, and repaired export links.
+- Supported Vitest CI runtimes, packaged Node 20 consumer checks, offline CLI integration, and separate manual native OCR conformance workflow.
+
+### Migration for 0.2.0
+- Consume `schemaVersion: doublecheck/report/v2`; use `correlations.length` instead of removed convergence-defect counters.
+- Custom runners return EngineResult objects; raw-array runners remain partial. Native OCR comments remain candidates until verified.
+- `normalizePath` is display-only; use root-aware canonicalization for identity. Deprecated source arrays contain normalized records.
+- Package and lockfile metadata are aligned at 0.2.0. Native unknown coverage remains partial; do not suppress exit 2 in CI.
+
 ## [0.1.1] - 2026-10-24
 
 ### Added

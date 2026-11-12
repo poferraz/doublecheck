@@ -1,0 +1,38 @@
+[
+  {
+    "fingerprint": "example:boundary",
+    "title": "Boundary issue",
+    "description": "Synthetic issue",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/a.js",
+        "line": 10,
+        "scope": "handler",
+        "description": "input"
+      },
+      {
+        "kind": "sink",
+        "file": "src/a.js",
+        "line": 20,
+        "scope": "sink",
+        "description": "sink"
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/a.js",
+        "line": 20,
+        "description": "synthetic observation"
+      }
+    ],
+    "verdict": "needs_validation",
+    "claimed_root_cause": "Unchecked input",
+    "blockers": [
+      "Runtime unknown"
+    ],
+    "validation_plan": {
+      "local": "Run synthetic fixture"
+    }
+  }
+]

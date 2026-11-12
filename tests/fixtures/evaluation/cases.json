@@ -1,0 +1,18 @@
+[
+  {
+    "name": "unverified dynamic evaluation candidate",
+    "file": "vulnerable.js",
+    "line": 2,
+    "sourceLine": "  return eval(input);",
+    "records": [{ "title": "Dynamic evaluation", "description": "Caller-controlled input reaches eval; caller authority still needs verification.", "file": "vulnerable.js", "line": 2, "severity": "high" }],
+    "expected": { "confirmed": 0, "unresolved": 1, "status": "partial" }
+  },
+  {
+    "name": "safe parsing negative control",
+    "file": "safe.js",
+    "line": 2,
+    "sourceLine": "  return JSON.parse(input);",
+    "records": [],
+    "expected": { "confirmed": 0, "unresolved": 0, "status": "partial" }
+  }
+]

@@ -1,62 +1,20 @@
-# Contributing to `doublecheck`
+# Contributing
 
-Thank you for your interest in contributing to `doublecheck`! We are building a multi-perspective code security and architecture review toolkit designed for both human developers and autonomous AI agents.
+Use Node 22.12+ within 22.x, 24.x, or 26.x for development with Vitest 5. The packaged application retains Node >=20 support, checked separately by consumer smoke CI.
 
----
+```bash
+npm ci
+npm test -- --no-cache
+npm run test:integration
+npm run smoke:consumer
+```
 
-## 🛠️ Development Setup
+Write a failing behavior regression before changing runtime behavior, then run the focused check and full suite. Do not replace runtime checks with assertions that documentation contains particular words. Keep test outputs in unique temporary directories and restore mocked globals. Tests must not require a paid/live model, modify user provider configuration, or leak credentials/source in diagnostics.
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/poferraz/doublecheck.git
-   cd doublecheck
-   ```
+Keep zero runtime npm dependencies and only Vitest as a direct devDependency. Use parameterized child-process calls, bounded operations, and cleanup in finally blocks. Preserve finding identities, verification states, and unknown coverage. Review instructions are in root REVIEW.md; a file alone does not enable a hosted review service.
 
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+The ordinary CI workflow tests supported development runtimes and packages the CLI for Node 20.0.0/20.x smoke without devDependencies. The separate native OCR workflow runs on pull requests or manual dispatch, installs exact OCR 1.13.3 in a disposable runner and uses a loopback mock model server. Native output, host discovery, and live model quality are separate evidence categories; do not claim an unexecuted check passed.
 
-3. **Verify the test suite:**
-   ```bash
-   npm test
-   ```
+The generic REVIEW.md template is src/templates/REVIEW.md. Both generators must consume it. Generate exports with `bash scripts/convert.sh all --output-dir /tmp/doublecheck-platforms` and verify links before distributing them. Avoid replacing existing host/project instructions.
 
-4. **Run the local doctor check:**
-   ```bash
-   ./bin/doublecheck.js --doctor-only
-   ```
-
----
-
-## 📐 Architecture Principles
-
-- **Test-Driven Development (TDD):** Every bugfix, attack class, and CLI feature must carry unit tests in `tests/`.
-- **Zero Cloud Invariant:** The core runner must always function 100% locally via Ollama with zero mandatory cloud API keys.
-- **Agent Skills Compliance:** Any enhancements to `skills/doublecheck/SKILL.md` must adhere to the [Agent Skills specification](https://agentskills.io/specification).
-- **Process & Filesystem Security:** Never use shell string interpolation in process execution (always use `execFileSync` with argument arrays); isolate all temp files via `fs.mkdtempSync`.
-- **Security First:** Never commit credentials, private tokens, or real victim target dumps.
-
----
-
-## 🚀 Submitting Pull Requests
-
-1. Fork the repo and create your branch: `git checkout -b feature/my-new-feature`.
-2. Commit your changes: `git commit -am 'feat: add new attack class'`.
-3. Push to the branch: `git push origin feature/my-new-feature`.
-4. Open a Pull Request with a clear summary of your changes.
-
-### Automated Pull Request Review
-Pull requests in this repository are analyzed automatically by [Claude Code Review](https://code.claude.com/docs/en/code-review) guided by [`.github/REVIEW.md`](.github/REVIEW.md).
-- Reviews flag command execution risks, async promise rejections, and test mocking invariants as inline PR comments.
-- Review checks are advisory and non-blocking, but maintainers require resolving all P0 (Blocker) findings prior to merge approval.
-
----
-
-## 📦 Releasing New Versions
-
-`doublecheck` strictly follows [Semantic Versioning](https://semver.org/):
-1. **Document Changes:** Update [CHANGELOG.md](CHANGELOG.md) under a new version heading adhering to [Keep a Changelog](https://keepachangelog.com/).
-2. **Bump Version:** Update `"version"` in `package.json`.
-3. **Verify Builds:** Run `npm test` and `bash scripts/convert.sh all`.
-4. **Tag & Release:** Commit changes, create a git tag (`git tag vX.Y.Z`), push to GitHub (`git push origin main --tags`), and draft the release notes using GitHub Releases.
+Document API/result-shape changes and exit codes under Unreleased in CHANGELOG.md. Preserve historical plans with superseded notices rather than rewriting their old approvals. Publishing a new package, pushing a branch, and releasing a tag require a separate request; this remediation does not publish automatically.

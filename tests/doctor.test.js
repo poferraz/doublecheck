@@ -1,63 +1,57 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { it, expect } from 'vitest';
 import { checkEnvironment, selectBestModel } from '../src/doctor.js';
-
-describe('Doctor Pre-flight Environment Checks', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('selects preferred coding models when available in Ollama model list', () => {
-    const models = [
-      { name: 'llama3:latest' },
-      { name: 'deepseek-v4.1-flash:1017-cloud' },
-      { name: 'nomic-embed-text:latest' }
-    ];
-    const selected = selectBestModel(models);
-    expect(selected).toBe('deepseek-v4.1-flash:1017-cloud');
-  });
-
-  it('falls back to qwen or first available chat model if preferred model is not present', () => {
-    const models = [
-      { name: 'nomic-embed-text:latest' },
-      { name: 'qwen2.5-coder:7b' }
-    ];
-    const selected = selectBestModel(models);
-    expect(selected).toBe('qwen2.5-coder:7b');
-  });
-
-  it('returns ok: true and model details when Ollama is running and responsive', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        models: [
-          { name: 'deepseek-v4.1-flash:1017-cloud' }
-        ]
-      })
-    });
-
-    const result = await checkEnvironment({
-      ollamaEndpoint: 'http://localhost:11434',
-      skipOcrCheck: true
-    });
-
-    expect(result.ok).toBe(true);
-    expect(result.ollamaReady).toBe(true);
-    expect(result.activeModel).toBe('deepseek-v4.1-flash:1017-cloud');
-    expect(result.errors).toHaveLength(0);
-  });
-
-  it('returns ok: false and helpful setup instructions when Ollama is offline', async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
-
-    const result = await checkEnvironment({
-      ollamaEndpoint: 'http://localhost:11434',
-      skipOcrCheck: true
-    });
-
-    expect(result.ok).toBe(false);
-    expect(result.ollamaReady).toBe(false);
-    expect(result.errors).toContainEqual(
-      expect.stringContaining('Could not connect to local Ollama')
-    );
-  });
+const model = 'qwen2.5-coder:7b';
+const config = () => ({ custom_providers: { ollama: { url: 'http://localhost:11434/v1', protocol: 'openai', model, api_key: 'ollama' } } });
+const ready = (options = {}) => checkEnvironment({ model, fetch: async () => ({ ok: true, json: async () => ({ models: [{ name: model }] }) }), readOcrConfig: config, execFileSync: () => 'open-code-review v1.13.3', ...options });
+it('selects available non-embedding models, never inventing a model', () => {
+  expect(selectBestModel([])).toBeNull(); expect(selectBestModel([{ name: 'nomic-embed-text' }])).toBeNull();
+  expect(selectBestModel([{ name: 'embed' }, { name: model }])).toBe(model);
+});
+it('requires a usable model and exact requested name or latest alias', async () => {
+  expect((await ready()).ok).toBe(true);
+  expect((await ready({ fetch: async () => ({ ok: true, json: async () => ({ models: [] }) }) })).ok).toBe(false);
+  expect((await ready({ model: 'qwen2.5-coder:70b' })).ok).toBe(false);
+});
+it('missing required OCR makes readiness fail with visible diagnostics', async () => {
+  const result = await ready({ execFileSync: () => { throw Error('secret-marker'); } });
+  expect(result.ok).toBe(false); expect(result.ocrAvailable).toBe(false);
+  expect(result.errors.join('')).not.toContain('secret-marker');
+});
+it('disables OCR self-update during preflight and rejects unsupported version variants', async () => {
+  let autoUpdateFlag;
+  const probe = version => ready({ execFileSync: (_cmd, _args, options) => {
+    autoUpdateFlag = options.env?.OCR_NO_UPDATE;
+    return version;
+  } });
+  expect((await probe('open-code-review v1.13.3 (375f64c) darwin/arm64')).ocrAvailable).toBe(true);
+  expect(autoUpdateFlag).toBe('1');
+  expect((await probe('open-code-review v1.13.3-beta')).ocrAvailable).toBe(false);
+});
+it('connection failures and cloud model refusal never report ready', async () => {
+  expect((await ready({ fetch: async () => { throw Error('secret-marker'); } })).ok).toBe(false);
+  expect((await ready({ model: 'qwen:cloud', fetch: async () => ({ ok: true, json: async () => ({ models: [{ name: 'qwen:cloud' }] }) }) })).ok).toBe(false);
+});
+it('auto-selects the best installed model permitted by the named provider', async () => {
+  const available = ['qwen2.5-coder:32b', model];
+  const result = await ready({ model: '', fetch: async () => ({ ok: true, json: async () => ({ models: available.map(name => ({ name })) }) }) });
+  expect(result.ok).toBe(true); expect(result.activeModel).toBe(model);
+});
+it('never substitutes a configured model for an explicit unusable request', async () => {
+  const result = await ready({ model: 'qwen2.5-coder:32b', fetch: async () => ({ ok: true, json: async () => ({ models: [{ name: model }, { name: 'qwen2.5-coder:32b' }] }) }) });
+  expect(result.ok).toBe(false);
+});
+it('auto-selection respects cloud consent and skips unusable cloud candidates', async () => {
+  const data = { custom_providers: { ollama: { ...config().custom_providers.ollama, models: ['qwen:cloud'] } } };
+  const result = await ready({ model: '', readOcrConfig: () => data, fetch: async () => ({ ok: true, json: async () => ({ models: [{ name: 'qwen:cloud' }, { name: model }] }) }) });
+  expect(result.ok).toBe(true); expect(result.activeModel).toBe(model);
+  const cloudOnly = await ready({ model: '', readOcrConfig: () => data, fetch: async () => ({ ok: true, json: async () => ({ models: [{ name: 'qwen:cloud' }] }) }) });
+  expect(cloudOnly.ok).toBe(false);
+});
+it('auto-selection skips a preferred model whose ordinary name hides remote backing', async () => {
+  const models = [{ name: 'qwen2.5-coder:32b', remote_host: 'https://other.invalid' }, { name: model }];
+  const data = config(); data.custom_providers.ollama.models = ['qwen2.5-coder:32b'];
+  const options = { model: '', readOcrConfig: () => data, fetch: async () => ({ ok: true, json: async () => ({ models }) }) };
+  expect((await ready(options)).activeModel).toBe(model);
+  expect((await ready({ ...options, model: 'qwen2.5-coder:32b' })).ok).toBe(false);
+  expect((await ready({ ...options, allowRemote: true })).activeModel).toBe('qwen2.5-coder:32b');
 });

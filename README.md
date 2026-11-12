@@ -1,297 +1,132 @@
-<h1 align="center"><code>doublecheck</code> 🔍⚖️</h1>
+# doublecheck
 
+Evidence-aware code security and architecture review for developers and AI coding agents.
 
-<p align="center">
-  <strong>Multi-Perspective Code Security & Architecture Review for Humans, CI/CD, and AI Coding Agents.</strong><br>
-  <em>Because the best code reviews happen when the Attacker, the Architect, and Continuous PR Review sit at the same table.</em>
-</p>
+[![CI](https://github.com/poferraz/doublecheck/actions/workflows/ci.yml/badge.svg)](https://github.com/poferraz/doublecheck/actions/workflows/ci.yml)
 
-<p align="center">
-  <a href="https://github.com/poferraz/doublecheck/releases/latest"><img src="https://img.shields.io/badge/Release-v0.1.1-blue?style=flat-square" alt="Release"></a>
-  <a href="https://github.com/poferraz/doublecheck/actions"><img src="https://img.shields.io/badge/CI-Passing-success?style=flat-square" alt="CI Status"></a>
-  <a href="https://ollama.com"><img src="https://img.shields.io/badge/Inference-100%25%20Local%20Ollama-blue?style=flat-square" alt="Ollama"></a>
-  <a href="https://github.com/cloudflare/security-audit-skill"><img src="https://img.shields.io/badge/Adversary-Cloudflare%20Audit-orange?style=flat-square" alt="Cloudflare Security Audit"></a>
-  <a href="https://github.com/alibaba/open-code-review"><img src="https://img.shields.io/badge/Architect-Alibaba%20OCR-red?style=flat-square" alt="Alibaba OCR"></a>
-  <a href="https://code.claude.com/docs/en/code-review"><img src="https://img.shields.io/badge/PR%20Review-Claude%20Code%20Ready-purple?style=flat-square" alt="Claude Code Review"></a>
-  <a href="https://agentskills.io"><img src="https://img.shields.io/badge/Skill-Agent%20Skills%20Standard-blueviolet?style=flat-square" alt="Agent Skills"></a>
-  <a href="package.json"><img src="https://img.shields.io/badge/Node-%3E%3D20.0.0-green?style=flat-square" alt="Node Version"></a>
-  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-Welcome-brightgreen?style=flat-square" alt="PRs Welcome"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square" alt="License"></a>
-</p>
+Version **0.2.0** introduces report schema v2 and changes the library result contract. This checkout and its local package are prepared for release; no publication is implied. Commands below run this checkout. The package name is `@poferraz/doublecheck`. Read the [0.2.0 release and migration notes](docs/RELEASE_0.2.0.md) before upgrading.
 
-```text
-$ npx @poferraz/doublecheck .
+Doublecheck validates review findings, preserves verification state and scan coverage, correlates exact source locations, and writes Markdown/JSON reports. An adversary review looks for exploitable trust-boundary failures; an architect review looks for correctness and lifecycle defects. Their overlap is evidence to investigate, not proof of a critical vulnerability.
 
-[doublecheck] Running pre-flight environment checks...
-✔ Local Ollama connected at http://localhost:11434 (deepseek-v4.1-flash)
-✔ Alibaba Open Code Review (ocr) engine active
+## Current capabilities and limits
 
-[doublecheck] Starting Dual-Perspective Audit on ./src...
-  1. Lens 1: The Adversary (Cloudflare Security Audit Standard)
-  2. Lens 2: The Principal Architect (Alibaba Open Code Review)
+| Input or mode | Behavior |
+| --- | --- |
+| Native Alibaba OCR 1.13.3 | Runs a full-file scan using an explicitly selected custom provider. Comments remain candidates. |
+| `--findings file.json` | Imports Cloudflare-format records; it does not execute Cloudflare's security-audit workflow. |
+| Default `--mode dual` | Requires adversary and architect coverage. An absent lens cannot be reported as a complete dual review. |
+| `--mode architect` | Requires only architect coverage; the unrequested adversary lens is labeled skipped. |
+| Coverage unavailable | Report is partial, even if there are no findings. OCR 1.13.3 `scan` currently has no coverage manifest, so its full-file scans remain partial. |
+| Agent skill | Guides a host agent through evidence gathering and verification; actual host/model quality requires separate evaluation. |
+| Root `REVIEW.md` | Supplies guidance to an already configured Claude Code Review service; it does not install the service or enforce a merge gate. |
 
-⚖️  CROSS-AUDIT CONVERGENCE DETECTED:
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ 🚨 PRIORITY 0 IMMEDIATE BLOCKER: api/ai-proxy.js:29                          │
-│ • Cloudflare Adversary: CRITICAL — Unrestricted serverless forward proxy     │
-│                         to cloud metadata (169.254.169.254).                 │
-│ • Alibaba Architect:    CRITICAL — Wildcard CORS credential relay on fetch() │
-│ ↳ CONVERGENCE CONFIDENCE: 100% (Both independent lenses flagged same line)   │
-└──────────────────────────────────────────────────────────────────────────────┘
+## Run this checkout
 
-✔ Audit Complete: 1 Converged P0 Defect | Reports: doublecheck-report.md
-```
+Runtime: Node.js `>=20.0.0`. Development tests: Node `22.12+` within the supported 22.x range, 24.x, or 26.x. OCR `1.13.3` and a reachable Ollama daemon with an installed tool-capable model are required for native scans. Model quality and tool support must be checked for your chosen model.
 
----
-
-## 📑 Table of Contents
-
-- [⚡ The Core Problem](#-the-core-problem)
-- [🏆 Why `doublecheck`?](#-why-doublecheck)
-- [🧠 System Architecture & Defense-in-Depth](#-system-architecture--defense-in-depth)
-- [🚀 Quickstart](#-quickstart)
-  - [1. Terminal / Human CLI Mode](#1-terminal--human-cli-mode)
-  - [2. Claude Code Review PR Integration](#2-claude-code-review-pr-integration)
-  - [3. AI Coding Agent Skill Mode](#3-ai-coding-agent-skill-mode)
-  - [4. GitHub Actions CI/CD Pipeline](#4-github-actions-cicd-pipeline)
-- [⚙️ CLI Arguments & Options Reference](#️-cli-arguments--options-reference)
-- [💻 Supported Local Ollama Models & Hardware](#-supported-local-ollama-models--hardware)
-- [🔬 Real-World Pilot Audit Findings](#-real-world-pilot-audit-findings)
-- [📦 Releases & Versioning](#-releases--versioning)
-- [🤝 Contributing](#-contributing)
-- [🛡️ Security Policy](#️-security-policy)
-- [📄 License](#-license)
-
----
-
-## ⚡ The Core Problem
-
-Traditional code reviews suffer from **single-lens blindness**:
-- **Linters & Static Analyzers** flag indentation and local syntax issues, but are completely blind to multi-step prompt injection, SSRF, and trust-boundary violations.
-- **Security Penetration Scanners** find theoretical attack vectors, but miss core software engineering bugs like unhandled async rejections, null dereferences, and state race conditions.
-- **Raw LLM Prompts** suffer from high false-positive hallucination rates and lack ground-truth AST invariant verification.
-
-`doublecheck` unifies two world-class security and engineering methodologies into an automated, zero-cost pipeline, backed by continuous pull request enforcement:
-
-| Dimension | Lens 1: The Attacker | Lens 2: The Architect | Continuous PR Gate |
-| :--- | :--- | :--- | :--- |
-| **Methodology** | [**Cloudflare Security Audit**](https://github.com/cloudflare/security-audit-skill) | [**Alibaba Open Code Review**](https://github.com/alibaba/open-code-review) | [**Claude Code Review**](https://code.claude.com/docs/en/code-review) |
-| **Perspective** | **Penetration Tester / Red Teamer** | **Principal Engineer / Staff Architect** | **Multi-Agent PR Reviewer** |
-| **Focus** | Exploit chains, AI prompt injection, SSRF, DOM XSS, crypto tampering | AST invariants, null safety, async leaks, type coercion traps, stability | Pull request diffs, repository context, team guidelines (`REVIEW.md`) |
-| **Key Output** | Proof-backed vulnerability findings (`findings.json`) | Line-level production defect annotations (`comments.json`) | GitHub inline PR annotations and check runs |
-
-When **both local lenses independently flag the exact same line of code**, `doublecheck` declares a **Converged High-Confidence Defect (Priority 0)**.
-
----
-
-## 🏆 Why `doublecheck`?
-
-| Capability | Traditional Linters (ESLint / Biome) | SAST Tools (Snyk / SonarQube) | Raw LLM Prompts (ChatGPT / Copilot) | Native Claude Code Review | **`doublecheck` (Unified)** |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Inference Cost** | $0.00 | Paid / Tiered | API tokens ($$) | Team / Enterprise API | **$0.00 (Local Ollama)** |
-| **Data Privacy** | 100% Local | Code uploaded to cloud | Cloud-hosted | Cloud-hosted | **100% Local / Zero Cloud** |
-| **Cross-Audit Convergence** | ❌ No | ❌ No | ❌ No | ❌ No | **✅ Yes (P0 Dual-Lens)** |
-| **Deep Threat Modeling** | ❌ No | ⚠️ Rule-based only | ⚠️ Unreliable lines | ✅ Multi-agent | **✅ Cloudflare 12-Class Hunt** |
-| **AST Invariant Verification** | ⚠️ Syntax only | ⚠️ Pattern matching | ❌ No AST engine | ⚠️ General reasoning | **✅ Alibaba Hybrid AST + LLM** |
-| **Continuous PR Gate (`REVIEW.md`)** | ❌ No | ⚠️ CI check only | ❌ No | ✅ Native PR review | **✅ Auto-generated via CLI** |
-
----
-
-## 🧠 System Architecture & Defense-in-Depth
-
-`doublecheck` operates as a two-tier **Defense-in-Depth** system:
-1. **Tier 1 (Inner Loop):** Runs locally on your workstation via Ollama before committing. Eliminates high-confidence converged defects at zero cost without sending private IP over the wire.
-2. **Tier 2 (Outer Loop):** Automatically triggered on GitHub pull requests. [Claude Code Review](https://code.claude.com/docs/en/code-review) reads `.github/REVIEW.md` (generated via `npx @poferraz/doublecheck --init-review`) and applies whole-repository multi-agent verification before merge.
-
-```mermaid
-flowchart TD
-    subgraph Tier1 ["Tier 1: Local Inner Loop (Workstation via Ollama · $0.00)"]
-        Target["Target Codebase (.)"] --> Doctor["Pre-flight Doctor\n(Checks Ollama / Node / Models)"]
-        Doctor --> Orchestrator["Dual Pipeline Orchestrator"]
-        
-        subgraph Lens1 ["Lens 1: The Adversary (Cloudflare)"]
-            CF_Rules["Attack Classes\n(AI/LLM, DOM XSS, SSRF, Crypto)"] --> CF_Hunt["Threat Boundary Audit & Exploit Tracing"]
-            CF_Hunt --> CF_Findings["Proof-Backed Findings"]
-        end
-        
-        subgraph Lens2 ["Lens 2: The Architect (Alibaba OCR)"]
-            Ali_Engine["Alibaba OCR Engine\n(@alibaba-group/open-code-review)"] --> Ali_AST["Hybrid AST + LLM Code Review"]
-            Ali_AST --> Ali_Comments["Line-Level Defects"]
-        end
-        
-        Orchestrator --> Lens1
-        Orchestrator --> Lens2
-        
-        CF_Findings --> Synthesizer["Convergence & Triage Synthesizer\n(src/reporter.js)"]
-        Ali_Comments --> Synthesizer
-        
-        Synthesizer --> Matrix["Convergence Matrix\n(P0 Immediate, P1 High, P2 Medium)"]
-        Synthesizer --> LocalReports["doublecheck-report.md / .json"]
-    end
-
-    subgraph Tier2 ["Tier 2: Remote Outer Loop (GitHub Pull Requests via Claude Code)"]
-        InitReview["npx @poferraz/doublecheck --init-review"] --> ReviewMd[".github/REVIEW.md\n(Repository Review Rules)"]
-        LocalReports --> PushPR["git push / Open Pull Request"]
-        ReviewMd --> ClaudeCR["Claude Code Review Engine\n(Multi-Agent Verification)"]
-        PushPR --> ClaudeCR
-        ClaudeCR --> InlineComments["Inline PR Review Comments\nNon-blocking Check Runs"]
-        InlineComments --> Maintainer["Maintainer Merge Sign-off"]
-    end
-```
-
----
-
-## 🚀 Quickstart
-
-### 1. Terminal / Human CLI Mode
-Run directly with `npx` (zero global installation required). Runs **100% locally on your machine via Ollama with zero API keys**:
+Configure a **custom** OCR provider manually. These commands change your OCR configuration; Doublecheck does not run them for you. Use the same installed model name throughout:
 
 ```bash
-# Run full dual audit on current directory
-npx @poferraz/doublecheck .
+ocr config set provider ollama
+ocr config set custom_providers.ollama.url http://localhost:11434/v1
+ocr config set custom_providers.ollama.protocol openai
+ocr config set custom_providers.ollama.model qwen3:8b
+ocr config set custom_providers.ollama.api_key ollama
 
-# Run on specific directory using a specific Ollama model
-npx @poferraz/doublecheck ./src --model deepseek-v4.1-flash:1017-cloud
-
-# Export to both Markdown and machine-readable JSON
-npx @poferraz/doublecheck . --format both -o security-report.md
-
-# Run pre-flight environment checks only
-npx @poferraz/doublecheck --doctor-only
+node ./bin/doublecheck.js --doctor-only --model qwen3:8b
+node ./bin/doublecheck.js . --mode architect --model qwen3:8b --format both -o review.json
+node ./bin/doublecheck.js . --findings findings.json --model qwen3:8b
 ```
 
-### 2. Claude Code Review PR Integration
-Bridge `doublecheck`'s multi-perspective rules directly into GitHub pull requests analyzed by Anthropic's [Claude Code Review](https://code.claude.com/docs/en/code-review):
+The placeholder key is required by OCR's custom-provider configuration; it is not a cloud API credential. Doublecheck rejects built-in OCR provider names for custom routing, checks the named provider's URL, protocol, and installed model, and requires remote opt-in when Ollama reports remote model backing. These checks run again before native execution. It rejects credential commands for that provider and does not silently use an ambient cloud provider.
+
+A loopback endpoint does not prove local inference: a daemon or proxy can forward requests. Remote endpoints and cloud-tagged models require `--allow-remote`; that flag is consent to routing, not a guarantee about provider data handling. Configure your daemon's cloud policy separately. See [SECURITY.md](SECURITY.md).
+
+## Reports and exit codes
+
+JSON uses `schemaVersion: "doublecheck/report/v2"` and contains `status`, `engines`, the full canonical `findings` list, `correlations`, confirmed `p0/p1/p2`, `unrated`, `unresolved`, `rejected`, and diagnostics.
+
+- **Confirmed** records require the supported verification contract. Native OCR comments and historical records without verdicts remain **needs_validation** candidates.
+- **Rejected** records remain separate and never become blockers through correlation.
+- Missing severity remains **Unrated**. Malformed records produce diagnostics; valid siblings are retained.
+- Exact content duplicates collapse; same-title or same-line distinct findings survive.
+- Correlations require exact canonical file identity and overlapping known line ranges. Missing lines and nearby lines do not count.
+
+| Exit | Meaning |
+| --- | --- |
+| `0` | Required coverage is complete, with no confirmed high/critical finding or unresolved high/critical/unrated candidate. Lower-severity candidates remain visible. |
+| `1` | Required coverage is complete and confirmed high/critical findings exist. |
+| `2` | Review is incomplete/failed, high/critical/unrated candidates remain unresolved, or invocation/preflight/output fails. Incompleteness takes precedence. |
+
+A report with no findings and unknown coverage means the engine did not establish which files completed. It exits **2**; inspect Engine Coverage and Diagnostics before deciding how to continue. A zero count is not a completed review.
+
+Native execution metadata distinguishes process success, timeout, and failure from review coverage. Requested provider/model/endpoint are retained separately from actual reported identity, including when output is missing. Timeouts emit `OCR_PROCESS_TIMEOUT` without exposing raw external error text.
+
+If OCR fails before writing usable output (missing, truncated, or malformed JSON), Doublecheck attempts saved-session recovery only when that process emitted an exact session marker. The ID must be absent from the pre-run inventory and its saved metadata must match this repo, model, and run time. A missing/conflicting marker, unavailable inventory, invalid time window, mismatching metadata, or malformed comments prevents recovery. Corrupt-output recovery requires a failed native process and preserves any explicitly failed terminal status. A hard kill may therefore still require manual recovery with `ocr session` commands. Recovered comments remain candidates with unknown coverage and a partial result; recovery never converts a failed process into a clean review.
+
+If native preflight fails while `--findings` is supplied, valid imported evidence is saved in a partial report and the command exits **2** without starting native inference.
+
+Native OCR 1.13.3 full-file scans currently return **2** because coverage is unknown. This is expected and must not be swallowed in CI. A complete clean review means coverage completed; it is not a security certification.
+
+For `--format both`, `-o review.json`, `-o review.md`, and `-o review` produce `review.md` and `review.json`. Single-format output honors the requested filename. Writes are staged, but the pair is not a cross-file atomic transaction; a failure lists any artifact already saved. Symlink/directory destinations and detectable hardlink collisions are refused.
+
+## CLI options
+
+| Option | Purpose |
+| --- | --- |
+| `[path]` | Existing target file/directory; default `.`. Use `--` before dash-prefixed targets. Commas, leading/trailing whitespace and ambiguous backslashes are refused when OCR cannot represent the selection literally. |
+| `--mode dual\|architect` | Required lenses; default `dual`. Architect mode cannot import adversary findings. |
+| `-m, --model name` | Installed model; otherwise choose an available non-embedding model permitted by the named provider. Explicit model requests never fall back. |
+| `--ollama url` | Base endpoint; default `http://localhost:11434`. |
+| `--ocr-provider name` | Matching configured custom provider; default `ollama`. |
+| `--allow-remote` | Opt in to remote endpoints/cloud-tagged models. |
+| `--findings file` | Import adversary JSON; missing files fail rather than become empty scans. |
+| `-f, --format markdown\|json\|both` | Output format; default Markdown. |
+| `-o, --output file` | Output path; defaults to `doublecheck-report.md` or `.json` for JSON-only. |
+| `--scan-timeout seconds` | Overall native process deadline; default `1200` (20 minutes). Positive integer, at most `2147483`. Library `options.timeout` uses milliseconds. |
+| `--doctor-only` | Check required engine configuration without running a review. |
+| `--init-review` | Initialize root `REVIEW.md` without inference. Alias: `--init-review-md`. |
+| `--force` | Replace custom root review instructions only with `--init-review`. |
+| `-h, --help` | Print usage. Unknown flags/missing values are errors. |
+
+## Claude Code Review instructions
 
 ```bash
-# Bootstrap .github/REVIEW.md in your repository
-npx @poferraz/doublecheck --init-review
-
-# Or export for a target directory
-npx @poferraz/doublecheck ./my-repo --init-review
+node ./bin/doublecheck.js ./my-repo --init-review
 ```
 
-This generates a ready-to-commit `.github/REVIEW.md` that directs Claude Code Review to enforce the Cloudflare attack classes, Alibaba architectural invariants, and convergence escalation criteria on every PR.
+Existing custom root instructions are preserved unless `--force` is explicit. Identical generated instructions are a no-op. Legacy `.github/REVIEW.md` files are preserved; move/reconcile your policy deliberately. This repository's own rules live in [REVIEW.md](REVIEW.md); the generic generated template lives in [src/templates/REVIEW.md](src/templates/REVIEW.md).
 
-### 3. AI Coding Agent Skill Mode
-`doublecheck` is formatted to the open [Agent Skills specification](https://agentskills.io/specification). Install directly into your AI coding assistant:
+The service needs separate organization/GitHub App configuration. See [official customization guidance](https://code.claude.com/docs/en/code-review-customize); local `/code-review` uses a different instruction contract.
+
+## Agent skill and exports
+
+The native skill is [skills/doublecheck/SKILL.md](skills/doublecheck/SKILL.md). Export into a dedicated directory with fresh platform destinations. Existing platform exports are preserved; choose a new output directory to regenerate:
 
 ```bash
-# Google Antigravity
-git clone https://github.com/poferraz/doublecheck.git
-bash doublecheck/scripts/convert.sh antigravity
-
-# Claude Code (~/.claude/skills/doublecheck)
-bash doublecheck/scripts/convert.sh claude
-
-# Cursor IDE (.cursor/rules/)
-bash doublecheck/scripts/convert.sh cursor
-
-# Windsurf (.windsurfrules)
-bash doublecheck/scripts/convert.sh windsurf
-
-# OpenAI Codex (AGENTS.md)
-bash doublecheck/scripts/convert.sh codex
+bash scripts/convert.sh all --output-dir /tmp/doublecheck-platforms
 ```
 
-In your agent session:
-```markdown
-/doublecheck
+Supported targets: `claude`, `antigravity`, `cursor`, `windsurf`, `codex`, `review-md`, `all`. Native skill exports retain selectively loaded reference manuals; Cursor references its renamed manuals; consolidated exports link embedded anchors. Conversion checks prove generated-link integrity, not actual discovery in every host. For Antigravity 2, install the exported skill under the target project's `.agents/skills/doublecheck/` (or global `~/.gemini/config/skills/doublecheck/`); the legacy IDE path is not the current desktop discovery root. Follow each host's installation instructions and verify activation before relying on it. Avoid overwriting an existing project routing file with an exported `AGENTS.md`.
+
+## Library and migration
+
+Import `@poferraz/doublecheck` after installing version 0.2.0. Public function names remain available, including `runDualAudit`, `synthesizeReport`, `detectConvergence`, `checkEnvironment`, and `generateDefaultReviewMd`; signatures/result shapes changed and require caller migration.
+
+Custom runners return validated `EngineResult` objects. Legacy array-returning runners are accepted with unknown coverage/partial status. `detectConvergence` now consumes normalized findings and returns informational location correlations. Use `getReviewExitCode(synthesizeReport(audit).json)` for the library CI decision; passing a raw audit or malformed report returns 2. Custom complete manifests must cover the actual selected file set (tracked and unignored worktree files in Git, regular files otherwise); claimed but absent files cannot pass. Location correlations are bounded; `correlationSummary.truncated` and diagnostics disclose any omitted pairs. Use `json.correlations.length` instead of removed `convergedCount`/`summary.convergedDefects`. `normalizePath` is a display helper; root-aware identity uses `canonicalizeFindingPath`. Deprecated `cloudflareFindings`/`alibabaComments` fields contain normalized records.
+
+Read the [0.2.0 migration contract](docs/RELEASE_0.2.0.md) for exact interfaces and the [release validation scope](docs/RELEASE_0.2.0.md#validation-and-limits) for executed checks and remaining limits.
+
+## Development and verification
+
+```bash
+npm ci
+npm test -- --no-cache
+npm run test:integration
+npm run smoke:consumer
+node scripts/verify-ocr-contract.mjs --preview-only
 ```
 
-### 4. GitHub Actions CI/CD Pipeline
-Enforce `doublecheck` audits automatically on pull requests using GitHub Actions:
+Offline tests use synthetic records, temporary directories, and injected external boundaries. Packaged smoke exercises the CLI/library without devDependencies. The native OCR contract workflow (`.github/workflows/ocr-contract.yml` in the repository) runs on pull requests to main or manual dispatch and provisions an isolated runner provider and a loopback mock inference server; `npm run test:ocr-contract` locally requires an already configured synthetic provider and never writes your OCR config. A frozen-response evaluation corpus tests deterministic handling, not live model precision/recall.
 
-```yaml
-# .github/workflows/doublecheck.yml
-name: Doublecheck Security Audit
-
-on:
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  audit:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Verify Claude Code Review Configuration
-        run: test -f .github/REVIEW.md || npx @poferraz/doublecheck --init-review
-
-      - name: Run doublecheck pre-flight doctor
-        run: npx @poferraz/doublecheck --doctor-only
-```
-
----
-
-## ⚙️ CLI Arguments & Options Reference
-
-| Argument / Flag | Type | Default | Description |
-| :--- | :---: | :---: | :--- |
-| `path` | `string` | `.` | Target directory or file to audit. |
-| `-m, --model <name>` | `string` | *auto-detected* | Custom Ollama model tag (e.g., `deepseek-v4.1-flash`, `qwen2.5-coder:14b`). |
-| `--ollama <url>` | `string` | `http://localhost:11434` | Base URL of the local or remote Ollama daemon. |
-| `-f, --format <format>` | `string` | `markdown` | Report format: `markdown`, `json`, or `both`. |
-| `-o, --output <file>` | `string` | `doublecheck-report.md` | Destination file for the generated report. |
-| `--init-review` | `boolean` | `false` | Generates `.github/REVIEW.md` tailored for Claude Code Review. |
-| `--doctor-only` | `boolean` | `false` | Verifies local Ollama, model availability, and OCR engine, then exits. |
-| `--findings <file>` | `string` | `""` | Path to pre-computed Cloudflare findings JSON. |
-| `-h, --help` | `boolean` | `false` | Displays CLI usage help and exit. |
-
----
-
-## 💻 Supported Local Ollama Models & Hardware
-
-`doublecheck` auto-detects the best available model on your local Ollama daemon in priority order:
-
-| Model Tag | Recommended Role | Minimum RAM | Recommended VRAM | Speed / Precision Profile |
-| :--- | :--- | :---: | :---: | :--- |
-| `deepseek-v4.1-flash:1017-cloud` | **Default / Recommended** | 8 GB | 6 GB | ⚡⚡⚡ High speed, optimal prompt injection & AST reasoning. |
-| `qwen2.5-coder:14b` | **High Precision Workstation** | 16 GB | 12 GB | ⚡⚡ State-of-the-art AST invariant and null-safety detection. |
-| `qwen2.5-coder:7b` | **Lightweight / Laptop** | 8 GB | 4 GB | ⚡⚡⚡ Fast execution for quick pre-commit audits. |
-| `mistral-large` | **Deep Architectural Reasoning** | 32 GB | 24 GB | ⚡ Thorough threat modeling across large multi-file boundaries. |
-| `llama3.3:70b` | **Enterprise Self-Hosted Server** | 64 GB | 48 GB | ⚡ Exhaustive multi-class adversarial vulnerability tracing. |
-
----
-
-## 🔬 Real-World Pilot Audit Findings
-
-During validation across production repositories, `doublecheck` proved its convergence theorem:
-
-| Vulnerability / Defect | Location | Cloudflare Adversary Finding | Alibaba Architect Finding | Result |
-| :--- | :--- | :--- | :--- | :---: |
-| **Open SSRF Proxy** | `api/ai-proxy.js:29` | **CRITICAL:** Unrestricted serverless forward proxy to cloud metadata (`169.254.169.254`) and internal VPC. | **CRITICAL:** Caller controls destination with wildcard CORS relaying credentials. | **100% Convergence (P0)** |
-| **DOM XSS Sink** | `src/main.js:379` | **HIGH:** Unescaped error message interpolated directly into `document.body.innerHTML`. | **CRITICAL:** Caught error message introduces DOM-based script injection sink. | **100% Convergence (P0)** |
-| **Cleartext Secrets** | `src/ui/storage.ts:63` | **CRITICAL:** OAuth client secrets and AI API keys written directly to `document.cookie`. | **HIGH:** Cleartext storage readable across origin without Secure/HttpOnly flags. | **100% Convergence (P0)** |
-| **Injection Bypass** | `src/firewall/injection.ts:19` | **HIGH:** 8-character Cyrillic normalizer bypassed by zero-width spaces (`\u200B`). | **HIGH:** Incomplete confusable mapping allows regex rule circumvention. | **100% Convergence (P0)** |
-| **Runtime Crash** | `src/domain/giant.js:3` | *Covered* | **HIGH:** Partial threshold configs not merged with defaults, throwing unhandled `TypeError`. | **Architect Defect (P1)** |
-
----
-
-## 📦 Releases & Versioning
-
-`doublecheck` adheres to [Semantic Versioning](https://semver.org/):
-- Review the complete release history in [CHANGELOG.md](CHANGELOG.md).
-- Track upcoming and published releases on [GitHub Releases](https://github.com/poferraz/doublecheck/releases).
-
----
-
-## 🤝 Contributing
-
-Contributions are warmly welcomed! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on adding new attack classes, AST inspection rulesets, and release workflows.
-
-## 🛡️ Security Policy
-
-Please review our [SECURITY.md](SECURITY.md) for our vulnerability disclosure policy and execution sandboxing guarantees.
-
----
-
-## 📄 License
-
-Apache License 2.0 © 2026 [Paulo Ferraz](https://github.com/poferraz).
+See [CONTRIBUTING.md](CONTRIBUTING.md), [CHANGELOG.md](CHANGELOG.md), and [SECURITY.md](SECURITY.md). Apache-2.0; the vendored Cloudflare schema retains its MIT license and pinned provenance.

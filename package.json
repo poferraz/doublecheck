@@ -1,6 +1,6 @@
 {
   "name": "@poferraz/doublecheck",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Multi-Perspective Code Security & Architecture Review for Humans and AI Agents",
   "type": "module",
   "bin": {
@@ -12,11 +12,18 @@
     "src",
     "skills",
     "scripts",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "SECURITY.md",
+    "REVIEW.md",
+    "CONTRIBUTING.md",
+    "docs/RELEASE_0.2.0.md"
   ],
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:integration": "vitest run tests/cli.integration.test.js",
+    "smoke:consumer": "node scripts/smoke-consumer.mjs",
+    "test:ocr-contract": "node scripts/verify-ocr-contract.mjs"
   },
   "repository": {
     "type": "git",

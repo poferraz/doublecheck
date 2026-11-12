@@ -1,0 +1,62 @@
+[
+  {
+    "fingerprint": "example:boundary",
+    "title": "Boundary issue",
+    "description": "Synthetic issue",
+    "trace": [
+      {
+        "kind": "entrypoint",
+        "file": "src/a.js",
+        "line": 10,
+        "scope": "handler",
+        "description": "input"
+      },
+      {
+        "kind": "sink",
+        "file": "src/a.js",
+        "line": 20,
+        "scope": "sink",
+        "description": "sink"
+      }
+    ],
+    "evidence": [
+      {
+        "file": "src/a.js",
+        "line": 20,
+        "description": "synthetic observation"
+      }
+    ],
+    "verdict": "confirmed",
+    "root_cause": "Unchecked input",
+    "intended_behavior": "Validate input",
+    "conditions": [],
+    "execution": {
+      "attacker_perspective": "Caller",
+      "payloads": [
+        "example"
+      ],
+      "instructions": [
+        "Invoke synthetic handler"
+      ],
+      "observed_result": "Observed synthetic boundary failure"
+    },
+    "remediation": {
+      "strategy": "Validate"
+    },
+    "severity": {
+      "likelihood": {
+        "score": "high",
+        "reason": "reachable"
+      },
+      "impact": {
+        "score": "high",
+        "reason": "boundary"
+      },
+      "overall_severity": "high"
+    },
+    "confidence": {
+      "score": "high",
+      "reason": "synthetic observation"
+    }
+  }
+]

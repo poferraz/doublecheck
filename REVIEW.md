@@ -8,20 +8,21 @@ This document configures automated code review behaviors for Claude Code Review 
 
 1. **Child Process Execution & Command Injection:**
    - Never use string interpolation inside shell executors (`execSync`, `exec`).
-   - Always use `execFileSync` with discrete, parameterized argument arrays.
+   - Use `execFileSync` or `spawn` with discrete, parameterized argument arrays and no shell.
+   - Bound subprocess duration and output; OCR deadlines must terminate its launcher and child processes rather than depend on graceful termination.
    - User-supplied paths, model identifiers, or repository URLs must never be passed to a shell without isolation.
 
 2. **Temporary File & Filesystem Sandboxing:**
    - Never write to predictable filenames in `/tmp` (e.g., `/tmp/temp_${Date.now()}.json`).
    - Use `fs.mkdtempSync` with secure prefixes (`doublecheck-`) and ensure immediate removal in `finally` blocks.
-   - All input paths must be normalized with `normalizePath` to strip directory traversal sequences (`../`).
+   - Validate finding identity with root-aware canonicalization; display path normalization does not provide OS filesystem containment.
 
 3. **Inference Resilience & Asynchronous Safety:**
    - Network fetches to local Ollama endpoints must use `AbortSignal.timeout(...)`.
    - All async audit runners must be wrapped in `try/catch` blocks inside `orchestrator.js` so that one engine's failure does not crash the entire audit.
 
 4. **Zero Cloud Invariant:**
-   - The core engine must remain operable 100% locally via Ollama with zero mandatory external API keys or cloud tokens.
+   - Require explicit matching provider/endpoint routing and opt-in to remote inference. A loopback endpoint alone does not prove local model execution.
 
 ---
 

@@ -13,18 +13,18 @@ OUTPUT_DIR="$PROJECT_DIR/dist/platforms"
 
 usage() {
     cat <<'USAGE'
-Usage: bash scripts/convert.sh <platform>
+Usage: bash scripts/convert.sh <platform> [--output-dir <directory>]
 
 Supported platforms:
   claude       — Claude Code (~/.claude/skills/ format)
   cursor       — Cursor IDE (.cursor/rules/ format)
-  antigravity  — Google Antigravity (~/.gemini/antigravity/skills/ format)
+  antigravity  — Antigravity 2 (project .agents/skills/ format)
   windsurf     — Windsurf (.windsurfrules format)
   codex        — OpenAI Codex (AGENTS.md format)
-  review-md    — Claude Code Review (.github/REVIEW.md format)
+  review-md    — Claude Code Review (root REVIEW.md)
   all          — Build distribution packages for all platforms
 
-Output is written to dist/platforms/<platform>/
+Default output: dist/platforms/<platform>/. Selected platform directories must not already exist.
 USAGE
     exit 1
 }
@@ -34,25 +34,50 @@ if [[ $# -lt 1 ]]; then
 fi
 
 PLATFORM="$1"
+shift
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --output-dir)
+            [[ $# -ge 2 && -n "$2" ]] || usage
+            OUTPUT_DIR="$2"
+            shift 2
+            ;;
+        *) usage ;;
+    esac
+done
+
+# Validate the full skill source before touching any destination.
+if [[ "$PLATFORM" != "review-md" ]]; then
+    [[ -r "$SKILL_DIR/SKILL.md" ]] || { echo "Error: skill source is missing or unreadable." >&2; exit 1; }
+    reference_files=("$SKILL_DIR"/references/*.md)
+    [[ ${#reference_files[@]} -gt 0 ]] || { echo "Error: reference manuals are missing." >&2; exit 1; }
+    for source in "$SKILL_DIR/SKILL.md" "${reference_files[@]}"; do
+        [[ -r "$source" ]] || { echo "Error: reference source is unreadable." >&2; exit 1; }
+        while IFS= read -r reference; do
+            [[ -r "$SKILL_DIR/$reference" ]] || { echo "Error: referenced manual is missing: $reference" >&2; exit 1; }
+        done < <(grep -oE 'references/[A-Za-z0-9_-]+\.md' "$source" || true)
+    done
+fi
 
 stream_references() {
     for ref in "$SKILL_DIR"/references/*.md; do
-        cat "$ref"
+        printf '<a id="doublecheck-%s"></a>\n\n' "$(basename "$ref" .md)"
+        cat "$ref" | sed -E 's@\]\(references/([A-Za-z0-9_-]+)\.md\)@](#doublecheck-\1)@g'
         printf "\n\n---\n\n"
     done
 }
 
 stream_skill_body() {
     local skill_file="$SKILL_DIR/SKILL.md"
-    if head -n 1 "$skill_file" | grep -q "^---$"; then
-        sed '1,/^---$/d' "$skill_file" | sed '1,/^---$/d'
-    else
-        cat "$skill_file"
-    fi
+    awk '
+        NR == 1 && $0 == "---" { metadata = 1; next }
+        metadata && $0 == "---" { metadata = 0; next }
+        !metadata { print }
+    ' "$skill_file"
 }
 
 build_consolidated() {
-    stream_skill_body
+    stream_skill_body | sed -E 's@\]\(references/([A-Za-z0-9_-]+)\.md\)@](#doublecheck-\1)@g'
     printf "\n---\n\n# Reference Manuals\n\n"
     stream_references
 }
@@ -79,9 +104,12 @@ convert_cursor() {
     local out="$OUTPUT_DIR/cursor/rules"
     mkdir -p "$out"
     echo "Converting for Cursor..."
-    stream_skill_body > "$out/doublecheck.md"
+    {
+        printf '%s\n' '---' 'description: Run an evidence-based security and architecture review using Doublecheck.' 'alwaysApply: false' '---'
+        stream_skill_body | sed -E 's@\]\(references/([A-Za-z0-9_-]+)\.md\)@](./doublecheck-\1.md)@g'
+    } > "$out/doublecheck.mdc"
     for ref in "$SKILL_DIR"/references/*.md; do
-        cp "$ref" "$out/doublecheck-$(basename "$ref")"
+        sed -E 's@\]\(references/([A-Za-z0-9_-]+)\.md\)@](./doublecheck-\1.md)@g' "$ref" > "$out/doublecheck-$(basename "$ref")"
     done
     echo "Output: $out/"
     echo "Install: Copy contents of $out/ into your project's .cursor/rules/"
@@ -107,78 +135,35 @@ convert_review_md() {
     local out="$OUTPUT_DIR/review-md"
     mkdir -p "$out"
     echo "Converting for Claude Code Review (REVIEW.md)..."
-    cat <<'REVIEW_EOF' > "$out/REVIEW.md"
-# Code Review Guidelines
-
-This document configures automated code review behaviors for Claude Code Review on pull requests, enforcing the `doublecheck` multi-perspective review standard.
-
----
-
-## Focus Areas
-
-1. **The Adversary Lens (Cloudflare Security Audit Standard):**
-   - AI & LLM Security: Detect prompt injection sinks, unvalidated tool parameter execution, homoglyph normalization bypasses.
-   - Client-Side Security: Unescaped `innerHTML`/`outerHTML`, DOM XSS sinks, sensitive token exposure in `document.cookie` or `localStorage`.
-   - Cloud & Deployment: Server-side request forgery (SSRF), unauthenticated proxies, wildcard CORS headers on credentialed endpoints.
-   - Cryptographic Integrity: Truncated digest hashes, nonces without domain separation, secrets in version control.
-
-2. **The Architect Lens (Alibaba Open Code Review Standard):**
-   - AST Correctness: Null dereferences, missing optional chaining on dynamic payloads, incomplete object spread defaults.
-   - Async & Concurrency: Unhandled promise rejections, missing fetch abort signals, unmanaged timer leaks, state race conditions.
-   - Type Coercion: Implicit boolean conversions, regex truncation on delimiter boundaries.
-
----
-
-## Convergence & Prioritization
-
-When an Adversary attack class and an Architect AST invariant both flag the exact same code location, declare a **Converged High-Confidence Defect (P0)**.
-
----
-
-## Severity Levels
-
-### Blocker (P0)
-- Converged defects: Any line where an architectural flaw directly enables an exploitable attack class.
-- Critical vulnerabilities: Arbitrary command execution, unrestricted SSRF, cleartext secret exposure, DOM XSS.
-
-### Major (P1)
-- Architectural bugs: Unhandled Promise rejections, missing error boundaries, potential memory leaks in production paths.
-- High-severity security issues: Missing rate limits on expensive operations, permissive CORS.
-
-### Minor (P2)
-- Code style, non-critical refactor suggestions, documentation omissions.
-
----
-
-## Ignored Paths
-- `node_modules/**`
-- `dist/**`
-- `coverage/**`
-REVIEW_EOF
+    cat "$PROJECT_DIR/src/templates/REVIEW.md" > "$out/REVIEW.md"
     echo "Output: $out/REVIEW.md"
-    echo "Install: cp $out/REVIEW.md .github/REVIEW.md"
 }
 
 case "$PLATFORM" in
-    claude)       convert_claude ;;
-    antigravity)  convert_antigravity ;;
-    cursor)       convert_cursor ;;
-    windsurf)     convert_windsurf ;;
-    codex)        convert_codex ;;
-    review-md)    convert_review_md ;;
-    all)
-        convert_claude
-        convert_antigravity
-        convert_cursor
-        convert_windsurf
-        convert_codex
-        convert_review_md
-        ;;
+    claude|antigravity|cursor|windsurf|codex|review-md) platforms=("$PLATFORM") ;;
+    all) platforms=(claude antigravity cursor windsurf codex review-md) ;;
     *)
         echo "Error: Unknown platform '$PLATFORM'"
         usage
         ;;
 esac
 
-echo ""
-echo "Done. Converted doublecheck for $PLATFORM."
+destination="$OUTPUT_DIR"
+helper="$SCRIPT_DIR/helpers/export-directory.mjs"
+stage="$(node "$helper" prepare "$destination" "${platforms[@]}")"
+trap 'rm -rf -- "$stage"' EXIT
+OUTPUT_DIR="$stage"
+for platform in "${platforms[@]}"; do
+    "convert_${platform//-/_}" > /dev/null
+done
+node "$helper" publish "$destination" "$stage" "${platforms[@]}"
+
+for platform in "${platforms[@]}"; do
+    printf 'Exported %s: %q\n' "$platform" "$destination/$platform"
+    case "$platform" in
+        claude) echo 'Install the exported skill as ~/.claude/skills/doublecheck/.' ;;
+        antigravity) echo 'Install the exported skill in the target project as .agents/skills/doublecheck/ (Antigravity 2).' ;;
+        cursor) echo 'Install the exported rules/ contents into .cursor/rules/.' ;;
+        review-md) printf 'From the target repository, initialize its review policy.\nInstall: node %q . --init-review\n' "$PROJECT_DIR/bin/doublecheck.js" ;;
+    esac
+done

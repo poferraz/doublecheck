@@ -1,0 +1,334 @@
+{
+  "date": "2026-11-09",
+  "kind": "live cloud inference on synthetic fixtures",
+  "node": "v26.12.0",
+  "ocr": "1.13.3",
+  "command": "node ./bin/doublecheck.js <synthetic-project> --mode architect --model deepseek-v4.1-flash:1017-cloud --allow-remote --scan-timeout 180 --format both -o <artifact-directory>/live.json",
+  "cliExitCode": 2,
+  "benignExploitObservation": "2",
+  "fixtures": {
+    "safe.js": "export function parse(input) {\n  return JSON.parse(input);\n}\n",
+    "vulnerable.js": "// Synthetic release-check fixture; no credentials or real application data.\nexport function handleRequest(req, res) {\n  const code = new URL(req.url, 'http://fixture.invalid').searchParams.get('code');\n  res.end(String(eval(code)));\n}\n"
+  },
+  "evaluation": {
+    "securitySinkDetected": true,
+    "falsePositiveCandidate": "High parser finding assumes an exception-free API contract that was not supplied. No confirmation or passing gate resulted.",
+    "localInferenceTested": false,
+    "statisticalAccuracyEstablished": false
+  },
+  "report": {
+    "schemaVersion": "doublecheck/report/v2",
+    "target": {
+      "targetRoot": "/private/tmp/doublecheck-live-ckTA1p/project",
+      "selectedPath": "",
+      "revision": null,
+      "selectionKind": "directory"
+    },
+    "status": "partial",
+    "reviewMode": "architect",
+    "summary": {
+      "targetPath": "/private/tmp/doublecheck-live-ckTA1p/project",
+      "timestamp": "2026-11-10T01:52:21.703Z",
+      "p0Count": 0,
+      "p1Count": 0,
+      "p2Count": 0,
+      "unresolvedCount": 3,
+      "rejectedCount": 0
+    },
+    "engines": [
+      {
+        "source": "adversary",
+        "status": "skipped",
+        "findings": [],
+        "diagnostics": [
+          {
+            "code": "LENS_NOT_REQUESTED",
+            "source": "adversary",
+            "message": "Review diagnostic: LENS_NOT_REQUESTED"
+          }
+        ],
+        "coverage": {
+          "selected": null,
+          "reviewed": null,
+          "failed": null,
+          "excluded": null,
+          "origin": "unknown"
+        },
+        "provenance": {
+          "tool": "cloudflare-findings",
+          "version": null,
+          "mode": "custom",
+          "targetRoot": "/private/tmp/doublecheck-live-ckTA1p/project",
+          "revision": null,
+          "provider": null,
+          "endpoint": null,
+          "model": null
+        }
+      },
+      {
+        "source": "architect",
+        "status": "partial",
+        "findings": [
+          {
+            "id": "architect:abfc4319865103b5179918cad063c2db8e97cf2c31a4c07ee32e016d675f8255",
+            "source": "architect",
+            "externalId": null,
+            "verdict": "needs_validation",
+            "severity": "critical",
+            "title": "[security] vulnerable.js",
+            "description": "Critical code injection / RCE: `code` comes straight from the request URL's query string and is passed to `eval()`, so any caller can execute arbitrary JavaScript in the server process (e.g. `?code=process.exit()` or reading env/credentials). `eval()` on untrusted input must never be used. Replace it with explicit, whitelisted parsing of the expected format (e.g. `JSON.parse` with validation, or `Number.parseInt` if a numeric value is expected) and reject invalid input with a 400 response.",
+            "locations": [
+              {
+                "file": "vulnerable.js",
+                "startLine": 3,
+                "endLine": 4,
+                "kind": "annotation"
+              }
+            ],
+            "evidence": [],
+            "remediation": "  const code = new URL(req.url, 'http://fixture.invalid').searchParams.get('code');\n  if (!code || !/^-?\\d+$/.test(code)) {\n    res.statusCode = 400;\n    res.end('Invalid code parameter');\n    return;\n  }\n  res.end(String(Number.parseInt(code, 10)));",
+            "reportedConfidence": null,
+            "verification": null
+          },
+          {
+            "id": "architect:4b380309ce6a2637fba4b12d821b2d948182b1de89f31cb61013519df980733e",
+            "source": "architect",
+            "externalId": null,
+            "verdict": "needs_validation",
+            "severity": "high",
+            "title": "[bug] safe.js",
+            "description": "`JSON.parse` throws a `SyntaxError` on malformed input and a `TypeError` when `input` is `undefined` (e.g. `parse(undefined)`), so this export is not actually \"safe\": any caller that passes user-supplied or optional data will crash the calling flow. Since the whole point of this module appears to be a safe wrapper, catch the failure and return a predictable fallback instead of propagating the exception.",
+            "locations": [
+              {
+                "file": "safe.js",
+                "startLine": 1,
+                "endLine": 3,
+                "kind": "annotation"
+              }
+            ],
+            "evidence": [],
+            "remediation": "export function parse(input) {\n  if (typeof input !== 'string') {\n    return null;\n  }\n  try {\n    return JSON.parse(input);\n  } catch (e) {\n    return null;\n  }\n}",
+            "reportedConfidence": null,
+            "verification": null
+          },
+          {
+            "id": "architect:123e74950e8c660f44d43d8c3e5b79e2ef1cbc7388a2e951a6adfd9124122548",
+            "source": "architect",
+            "externalId": null,
+            "verdict": "needs_validation",
+            "severity": "low",
+            "title": "[documentation] safe.js",
+            "description": "The function has no documentation describing its contract (accepted input type, return value on failure, whether it throws). Given that the name implies exception-free behavior, add a short JSDoc block specifying the parameter type and the fallback/error behavior so callers know what to expect.",
+            "locations": [
+              {
+                "file": "safe.js",
+                "startLine": 1,
+                "endLine": 1,
+                "kind": "annotation"
+              }
+            ],
+            "evidence": [],
+            "remediation": "/**\n * Safely parses a JSON string.\n * @param {string} input JSON text to parse.\n * @returns {*} Parsed value, or null when input is invalid.\n */\nexport function parse(input) {",
+            "reportedConfidence": null,
+            "verification": null
+          }
+        ],
+        "diagnostics": [
+          {
+            "code": "UNKNOWN_NATIVE_COVERAGE",
+            "source": "architect",
+            "message": "Review diagnostic: UNKNOWN_NATIVE_COVERAGE"
+          }
+        ],
+        "coverage": {
+          "selected": null,
+          "reviewed": null,
+          "failed": null,
+          "excluded": null,
+          "origin": "unknown"
+        },
+        "provenance": {
+          "tool": "ocr",
+          "version": "1.13.3",
+          "mode": "native",
+          "targetRoot": "/private/tmp/doublecheck-live-ckTA1p/project",
+          "revision": null,
+          "provider": "ollama",
+          "endpoint": "http://localhost:11434",
+          "model": "deepseek-v4.1-flash:1017-cloud"
+        },
+        "execution": {
+          "status": "succeeded",
+          "timeoutMs": 180000,
+          "elapsedMs": 11651,
+          "sessionId": null,
+          "completedFiles": null
+        },
+        "requestedInference": {
+          "provider": "ollama",
+          "endpoint": "http://localhost:11434",
+          "model": "deepseek-v4.1-flash:1017-cloud",
+          "route": "loopback",
+          "locality": "unverified",
+          "warnings": [
+            "Ollama reports remote model backing; remote routing was allowed."
+          ]
+        }
+      }
+    ],
+    "findings": [
+      {
+        "id": "architect:123e74950e8c660f44d43d8c3e5b79e2ef1cbc7388a2e951a6adfd9124122548",
+        "source": "architect",
+        "externalId": null,
+        "verdict": "needs_validation",
+        "severity": "low",
+        "title": "[documentation] safe.js",
+        "description": "The function has no documentation describing its contract (accepted input type, return value on failure, whether it throws). Given that the name implies exception-free behavior, add a short JSDoc block specifying the parameter type and the fallback/error behavior so callers know what to expect.",
+        "locations": [
+          {
+            "file": "safe.js",
+            "startLine": 1,
+            "endLine": 1,
+            "kind": "annotation"
+          }
+        ],
+        "evidence": [],
+        "remediation": "/**\n * Safely parses a JSON string.\n * @param {string} input JSON text to parse.\n * @returns {*} Parsed value, or null when input is invalid.\n */\nexport function parse(input) {",
+        "reportedConfidence": null,
+        "verification": null
+      },
+      {
+        "id": "architect:4b380309ce6a2637fba4b12d821b2d948182b1de89f31cb61013519df980733e",
+        "source": "architect",
+        "externalId": null,
+        "verdict": "needs_validation",
+        "severity": "high",
+        "title": "[bug] safe.js",
+        "description": "`JSON.parse` throws a `SyntaxError` on malformed input and a `TypeError` when `input` is `undefined` (e.g. `parse(undefined)`), so this export is not actually \"safe\": any caller that passes user-supplied or optional data will crash the calling flow. Since the whole point of this module appears to be a safe wrapper, catch the failure and return a predictable fallback instead of propagating the exception.",
+        "locations": [
+          {
+            "file": "safe.js",
+            "startLine": 1,
+            "endLine": 3,
+            "kind": "annotation"
+          }
+        ],
+        "evidence": [],
+        "remediation": "export function parse(input) {\n  if (typeof input !== 'string') {\n    return null;\n  }\n  try {\n    return JSON.parse(input);\n  } catch (e) {\n    return null;\n  }\n}",
+        "reportedConfidence": null,
+        "verification": null
+      },
+      {
+        "id": "architect:abfc4319865103b5179918cad063c2db8e97cf2c31a4c07ee32e016d675f8255",
+        "source": "architect",
+        "externalId": null,
+        "verdict": "needs_validation",
+        "severity": "critical",
+        "title": "[security] vulnerable.js",
+        "description": "Critical code injection / RCE: `code` comes straight from the request URL's query string and is passed to `eval()`, so any caller can execute arbitrary JavaScript in the server process (e.g. `?code=process.exit()` or reading env/credentials). `eval()` on untrusted input must never be used. Replace it with explicit, whitelisted parsing of the expected format (e.g. `JSON.parse` with validation, or `Number.parseInt` if a numeric value is expected) and reject invalid input with a 400 response.",
+        "locations": [
+          {
+            "file": "vulnerable.js",
+            "startLine": 3,
+            "endLine": 4,
+            "kind": "annotation"
+          }
+        ],
+        "evidence": [],
+        "remediation": "  const code = new URL(req.url, 'http://fixture.invalid').searchParams.get('code');\n  if (!code || !/^-?\\d+$/.test(code)) {\n    res.statusCode = 400;\n    res.end('Invalid code parameter');\n    return;\n  }\n  res.end(String(Number.parseInt(code, 10)));",
+        "reportedConfidence": null,
+        "verification": null
+      }
+    ],
+    "correlations": [],
+    "correlationSummary": {
+      "truncated": false,
+      "limit": 1000,
+      "comparisonLimit": 10000
+    },
+    "p0": [],
+    "p1": [],
+    "p2": [],
+    "unrated": [],
+    "unresolved": [
+      {
+        "id": "architect:123e74950e8c660f44d43d8c3e5b79e2ef1cbc7388a2e951a6adfd9124122548",
+        "source": "architect",
+        "externalId": null,
+        "verdict": "needs_validation",
+        "severity": "low",
+        "title": "[documentation] safe.js",
+        "description": "The function has no documentation describing its contract (accepted input type, return value on failure, whether it throws). Given that the name implies exception-free behavior, add a short JSDoc block specifying the parameter type and the fallback/error behavior so callers know what to expect.",
+        "locations": [
+          {
+            "file": "safe.js",
+            "startLine": 1,
+            "endLine": 1,
+            "kind": "annotation"
+          }
+        ],
+        "evidence": [],
+        "remediation": "/**\n * Safely parses a JSON string.\n * @param {string} input JSON text to parse.\n * @returns {*} Parsed value, or null when input is invalid.\n */\nexport function parse(input) {",
+        "reportedConfidence": null,
+        "verification": null
+      },
+      {
+        "id": "architect:4b380309ce6a2637fba4b12d821b2d948182b1de89f31cb61013519df980733e",
+        "source": "architect",
+        "externalId": null,
+        "verdict": "needs_validation",
+        "severity": "high",
+        "title": "[bug] safe.js",
+        "description": "`JSON.parse` throws a `SyntaxError` on malformed input and a `TypeError` when `input` is `undefined` (e.g. `parse(undefined)`), so this export is not actually \"safe\": any caller that passes user-supplied or optional data will crash the calling flow. Since the whole point of this module appears to be a safe wrapper, catch the failure and return a predictable fallback instead of propagating the exception.",
+        "locations": [
+          {
+            "file": "safe.js",
+            "startLine": 1,
+            "endLine": 3,
+            "kind": "annotation"
+          }
+        ],
+        "evidence": [],
+        "remediation": "export function parse(input) {\n  if (typeof input !== 'string') {\n    return null;\n  }\n  try {\n    return JSON.parse(input);\n  } catch (e) {\n    return null;\n  }\n}",
+        "reportedConfidence": null,
+        "verification": null
+      },
+      {
+        "id": "architect:abfc4319865103b5179918cad063c2db8e97cf2c31a4c07ee32e016d675f8255",
+        "source": "architect",
+        "externalId": null,
+        "verdict": "needs_validation",
+        "severity": "critical",
+        "title": "[security] vulnerable.js",
+        "description": "Critical code injection / RCE: `code` comes straight from the request URL's query string and is passed to `eval()`, so any caller can execute arbitrary JavaScript in the server process (e.g. `?code=process.exit()` or reading env/credentials). `eval()` on untrusted input must never be used. Replace it with explicit, whitelisted parsing of the expected format (e.g. `JSON.parse` with validation, or `Number.parseInt` if a numeric value is expected) and reject invalid input with a 400 response.",
+        "locations": [
+          {
+            "file": "vulnerable.js",
+            "startLine": 3,
+            "endLine": 4,
+            "kind": "annotation"
+          }
+        ],
+        "evidence": [],
+        "remediation": "  const code = new URL(req.url, 'http://fixture.invalid').searchParams.get('code');\n  if (!code || !/^-?\\d+$/.test(code)) {\n    res.statusCode = 400;\n    res.end('Invalid code parameter');\n    return;\n  }\n  res.end(String(Number.parseInt(code, 10)));",
+        "reportedConfidence": null,
+        "verification": null
+      }
+    ],
+    "rejected": [],
+    "diagnostics": [
+      {
+        "code": "LENS_NOT_REQUESTED",
+        "source": "adversary",
+        "message": "Review diagnostic: LENS_NOT_REQUESTED"
+      },
+      {
+        "code": "UNKNOWN_NATIVE_COVERAGE",
+        "source": "architect",
+        "message": "Review diagnostic: UNKNOWN_NATIVE_COVERAGE"
+      }
+    ],
+    "errors": []
+  }
+}
