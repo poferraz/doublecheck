@@ -1,6 +1,26 @@
 # Doublecheck 0.2.0
 
-Version 0.2.0 preserves the distinction between a finding, its verification state and scan completion. It prepares Markdown and JSON evidence for developers, CI consumers and coding agents. This package is prepared for release; publication and tagging are separate actions.
+Version 0.2.0 was published on November 11, 2026 (America/Vancouver), on [npm](https://www.npmjs.com/package/@poferraz/doublecheck/v/0.2.0) and as a [GitHub release](https://github.com/poferraz/doublecheck/releases/tag/v0.2.0). Tag `v0.2.0` points to merged commit `c62e794164803ae919dd16a8955dc3f595c356ac`.
+
+This release preserves the distinction between a finding, its verification state and scan completion. It prepares Markdown and JSON evidence for developers, CI consumers and coding agents.
+
+## Install 0.2.0
+
+Requires Node.js `>=20.0.0`. For the global CLI:
+
+```bash
+npm install --global @poferraz/doublecheck@0.2.0
+doublecheck --help
+```
+
+For a project-local CLI or the ESM library:
+
+```bash
+npm install @poferraz/doublecheck@0.2.0
+npx doublecheck --help
+```
+
+Native inference requires the separate OCR/provider/model setup in the [README](../README.md#configure-and-run-a-native-scan). Help and `--init-review` do not require inference.
 
 ## What changes
 
@@ -45,7 +65,11 @@ Use `report.json.correlations.length` instead of removed `convergedCount` or `su
 
 ## Validation and limits
 
-The offline regression suite, packaged consumer smoke, real OCR cloud execution and real timeout path have been checked. Supported runtime and CI results for the prepared artifact are recorded in the repository's release-readiness record. Hosted Codex loaded and followed the export on two synthetic source files. These observations do not establish model precision or recall. A safe-control candidate made an unsupported contract assumption and remained unconfirmed.
+The final pull-request checks passed all six jobs, including the native OCR mock contract; all five post-merge CI jobs passed. Each development runtime passed 267 tests across 26 files and the separate 6-test CLI integration suite. Fresh anonymous npm installations passed CLI help, review-instruction initialization and library API checks on Node 20.0.0 (exact `0.2.0`) and Node 26.13.0 (the default npm tag). All 37 installed files and executable modes matched the verified tarball, and lockfile SRI matched the registry. These consumer checks did not run model inference.
+
+The published tarball is 52,199 bytes, with SHA-256 `aec750c13c80ab228ffd7b672ded85ad1043d0ebfbb7a894f329a4d819b20795`. It was published without repacking. Repository documentation can receive later updates; the published 0.2.0 artifact remains frozen. See the repository's [release-readiness record](https://github.com/poferraz/doublecheck/blob/main/docs/verification/2026-11-09-release-readiness.md) for current publication evidence and dated validation history.
+
+The offline regression suite, packaged consumer smoke, real OCR cloud execution and real timeout path have been checked. Hosted Codex loaded and followed the export on two synthetic source files. These observations do not establish model precision or recall. A safe-control candidate made an unsupported contract assumption and remained unconfirmed.
 
 Antigravity desktop 2.31.0 discovered and applied the project-scoped skill in a fresh, committed Git workspace. On two synthetic files it traced request input into `eval`, rejected an unsupported parser claim and disclosed coverage limits. A follow-up supplied a harmless source-derived reproduction; JavaScript was not executed. Antigravity CLI 1.4.7 also expanded the skill and read its manuals, but its captured answer was truncated. These are bounded activation checks, not accuracy measurements. Cursor, Claude Code and Windsurf exports have format/reference checks but no completed interactive activation result here. Generated integration instructions and an optional root `REVIEW.md` do not install or enforce a hosted review service.
 

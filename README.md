@@ -1,10 +1,14 @@
 # doublecheck
 
+![Doublecheck: adversary and architect review the same code, contributing separate evidence to findings, verification and coverage.](https://raw.githubusercontent.com/poferraz/doublecheck/main/docs/assets/doublecheck-hero.gif)
+
+[View the still hero](https://raw.githubusercontent.com/poferraz/doublecheck/main/docs/assets/doublecheck-hero.png)
+
 Evidence-aware code security and architecture review for developers and AI coding agents.
 
 [![CI](https://github.com/poferraz/doublecheck/actions/workflows/ci.yml/badge.svg)](https://github.com/poferraz/doublecheck/actions/workflows/ci.yml)
 
-Version **0.2.0** introduces report schema v2 and changes the library result contract. This checkout and its local package are prepared for release; no publication is implied. Commands below run this checkout. The package name is `@poferraz/doublecheck`. Read the [0.2.0 release and migration notes](docs/RELEASE_0.2.0.md) before upgrading.
+Version **0.2.0** is published on [npm](https://www.npmjs.com/package/@poferraz/doublecheck/v/0.2.0) and as a [GitHub release](https://github.com/poferraz/doublecheck/releases/tag/v0.2.0). It introduces report schema v2 and changes the library result contract. Read the [0.2.0 release and migration notes](docs/RELEASE_0.2.0.md) before upgrading.
 
 Doublecheck validates review findings, preserves verification state and scan coverage, correlates exact source locations, and writes Markdown/JSON reports. An adversary review looks for exploitable trust-boundary failures; an architect review looks for correctness and lifecycle defects. Their overlap is evidence to investigate, not proof of a critical vulnerability.
 
@@ -20,9 +24,26 @@ Doublecheck validates review findings, preserves verification state and scan cov
 | Agent skill | Guides a host agent through evidence gathering and verification; actual host/model quality requires separate evaluation. |
 | Root `REVIEW.md` | Supplies guidance to an already configured Claude Code Review service; it does not install the service or enforce a merge gate. |
 
-## Run this checkout
+## Install
 
-Runtime: Node.js `>=20.0.0`. Development tests: Node `22.12+` within the supported 22.x range, 24.x, or 26.x. OCR `1.13.3` and a reachable Ollama daemon with an installed tool-capable model are required for native scans. Model quality and tool support must be checked for your chosen model.
+Requires Node.js `>=20.0.0`. Install the published CLI globally:
+
+```bash
+npm install --global @poferraz/doublecheck@0.2.0
+doublecheck --help
+doublecheck ./my-repo --init-review
+```
+
+For a project-local CLI and the library API, run this in your project:
+
+```bash
+npm install @poferraz/doublecheck@0.2.0
+npx doublecheck --help
+```
+
+Help and review-instruction initialization do not run inference. Native scans additionally require OCR `1.13.3` and a reachable Ollama daemon with an installed tool-capable model. Check model quality and tool support for your chosen model.
+
+## Configure and run a native scan
 
 Configure a **custom** OCR provider manually. These commands change your OCR configuration; Doublecheck does not run them for you. Use the same installed model name throughout:
 
@@ -33,10 +54,12 @@ ocr config set custom_providers.ollama.protocol openai
 ocr config set custom_providers.ollama.model qwen3:8b
 ocr config set custom_providers.ollama.api_key ollama
 
-node ./bin/doublecheck.js --doctor-only --model qwen3:8b
-node ./bin/doublecheck.js . --mode architect --model qwen3:8b --format both -o review.json
-node ./bin/doublecheck.js . --findings findings.json --model qwen3:8b
+doublecheck --doctor-only --model qwen3:8b
+doublecheck . --mode architect --model qwen3:8b --format both -o review.json
+doublecheck . --findings findings.json --model qwen3:8b
 ```
+
+Use `npx doublecheck` in place of `doublecheck` for a project-local installation.
 
 The placeholder key is required by OCR's custom-provider configuration; it is not a cloud API credential. Doublecheck rejects built-in OCR provider names for custom routing, checks the named provider's URL, protocol, and installed model, and requires remote opt-in when Ollama reports remote model backing. These checks run again before native execution. It rejects credential commands for that provider and does not silently use an ambient cloud provider.
 
@@ -92,7 +115,7 @@ For `--format both`, `-o review.json`, `-o review.md`, and `-o review` produce `
 ## Claude Code Review instructions
 
 ```bash
-node ./bin/doublecheck.js ./my-repo --init-review
+doublecheck ./my-repo --init-review
 ```
 
 Existing custom root instructions are preserved unless `--force` is explicit. Identical generated instructions are a no-op. Legacy `.github/REVIEW.md` files are preserved; move/reconcile your policy deliberately. This repository's own rules live in [REVIEW.md](REVIEW.md); the generic generated template lives in [src/templates/REVIEW.md](src/templates/REVIEW.md).
@@ -101,7 +124,7 @@ The service needs separate organization/GitHub App configuration. See [official 
 
 ## Agent skill and exports
 
-The native skill is [skills/doublecheck/SKILL.md](skills/doublecheck/SKILL.md). Export into a dedicated directory with fresh platform destinations. Existing platform exports are preserved; choose a new output directory to regenerate:
+The native skill is [skills/doublecheck/SKILL.md](skills/doublecheck/SKILL.md). From a source checkout, export into a dedicated directory with fresh platform destinations. Existing platform exports are preserved; choose a new output directory to regenerate:
 
 ```bash
 bash scripts/convert.sh all --output-dir /tmp/doublecheck-platforms
@@ -111,7 +134,24 @@ Supported targets: `claude`, `antigravity`, `cursor`, `windsurf`, `codex`, `revi
 
 ## Library and migration
 
-Import `@poferraz/doublecheck` after installing version 0.2.0. Public function names remain available, including `runDualAudit`, `synthesizeReport`, `detectConvergence`, `checkEnvironment`, and `generateDefaultReviewMd`; signatures/result shapes changed and require caller migration.
+After the project-local installation above, import the ESM library:
+
+```js
+import {
+  runDualAudit,
+  synthesizeReport,
+  getReviewExitCode,
+} from '@poferraz/doublecheck';
+
+const audit = await runDualAudit('./my-repo', {
+  reviewMode: 'architect',
+  model: 'qwen3:8b',
+});
+const report = synthesizeReport(audit);
+const exitCode = getReviewExitCode(report.json);
+```
+
+This native example requires the OCR/provider setup above and retains unknown coverage with exit code 2. Public function names remain available, including `runDualAudit`, `synthesizeReport`, `detectConvergence`, `checkEnvironment`, and `generateDefaultReviewMd`; signatures/result shapes changed and require caller migration.
 
 Custom runners return validated `EngineResult` objects. Legacy array-returning runners are accepted with unknown coverage/partial status. `detectConvergence` now consumes normalized findings and returns informational location correlations. Use `getReviewExitCode(synthesizeReport(audit).json)` for the library CI decision; passing a raw audit or malformed report returns 2. Custom complete manifests must cover the actual selected file set (tracked and unignored worktree files in Git, regular files otherwise); claimed but absent files cannot pass. Location correlations are bounded; `correlationSummary.truncated` and diagnostics disclose any omitted pairs. Use `json.correlations.length` instead of removed `convergedCount`/`summary.convergedDefects`. `normalizePath` is a display helper; root-aware identity uses `canonicalizeFindingPath`. Deprecated `cloudflareFindings`/`alibabaComments` fields contain normalized records.
 
@@ -119,8 +159,11 @@ Read the [0.2.0 migration contract](docs/RELEASE_0.2.0.md) for exact interfaces 
 
 ## Development and verification
 
+These commands run a source checkout. Development tests use Node `22.12+` within 22.x, 24.x, or 26.x; the published CLI/library also supports Node 20.
+
 ```bash
 npm ci
+node ./bin/doublecheck.js --help
 npm test -- --no-cache
 npm run test:integration
 npm run smoke:consumer

@@ -17,4 +17,4 @@ The ordinary CI workflow tests supported development runtimes and packages the C
 
 The generic REVIEW.md template is src/templates/REVIEW.md. Both generators must consume it. Generate exports with `bash scripts/convert.sh all --output-dir /tmp/doublecheck-platforms` and verify links before distributing them. Avoid replacing existing host/project instructions.
 
-Document API/result-shape changes and exit codes under Unreleased in CHANGELOG.md. Preserve historical plans with superseded notices rather than rewriting their old approvals. Publishing a new package, pushing a branch, and releasing a tag require a separate request; this remediation does not publish automatically.
+Document API/result-shape changes and exit codes under Unreleased in CHANGELOG.md. Preserve historical plans with superseded notices rather than rewriting their old approvals. Version 0.2.0 is [published](https://github.com/poferraz/doublecheck/releases/tag/v0.2.0); later repository documentation changes do not alter that frozen package. Publishing another package, pushing a branch, and releasing a tag require user authorization.

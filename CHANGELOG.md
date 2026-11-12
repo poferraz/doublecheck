@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-11-09
+### Documentation
+- Document the published 0.2.0 release, npm installation and post-publication verification. The published package remains unchanged.
+- Add an animated repository hero showing the two review perspectives and their shared evidence report, with a static alternative and reproducible motion source.
 
-Prepared for release; publication and tagging are separate actions.
+## [0.2.0] - 2026-11-11
+
+Published on [npm](https://www.npmjs.com/package/@poferraz/doublecheck/v/0.2.0) and as [GitHub release v0.2.0](https://github.com/poferraz/doublecheck/releases/tag/v0.2.0).
 
 ### Audit remediation
 - Reject failure diagnostics and nonempty error lists in complete report gates, including after JSON serialization.

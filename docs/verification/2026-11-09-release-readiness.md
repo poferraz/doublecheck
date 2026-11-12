@@ -1,4 +1,20 @@
-# Release validation — updated November 11, 2026
+# Release validation — 0.2.0 published November 11, 2026
+
+## Current publication status
+
+**Doublecheck 0.2.0 is published.** [PR #1](https://github.com/poferraz/doublecheck/pull/1) was merged; tag `v0.2.0` points to commit `c62e794164803ae919dd16a8955dc3f595c356ac`. The [GitHub release](https://github.com/poferraz/doublecheck/releases/tag/v0.2.0) and public [npm package](https://www.npmjs.com/package/@poferraz/doublecheck/v/0.2.0) were published on November 11, 2026 (America/Vancouver). npm's `latest` tag resolved to 0.2.0 during post-publication verification.
+
+The exact frozen tarball was published without repacking: 52,199 bytes, 37 files, SHA-256 `aec750c13c80ab228ffd7b672ded85ad1043d0ebfbb7a894f329a4d819b20795`. Anonymous downloads from npm and GitHub matched that hash. Later repository documentation changes do not alter the published 0.2.0 tarball or its tag.
+
+Fresh anonymous installations used empty npm configuration, a token-free environment and new caches against the public registry. Exact `@poferraz/doublecheck@0.2.0` on Node 20.0.0 and default `@poferraz/doublecheck` on Node 26.13.0 each passed CLI help, `--init-review` and library API checks. All 37 installed file contents and executable modes matched the verified tarball, and each lockfile integrity value matched registry SRI. Both installations had zero runtime dependencies. These checks did not run model inference.
+
+All six final PR jobs passed: [CI](https://github.com/poferraz/doublecheck/actions/runs/43124161872) and [native OCR mock contract](https://github.com/poferraz/doublecheck/actions/runs/43124161873). All five [post-merge CI jobs](https://github.com/poferraz/doublecheck/actions/runs/43124533492) passed on the tagged main commit. Each development runtime passed 267 tests across 26 files and the separate 6-test CLI integration suite. The mock contract used OCR 1.13.3 and correctly retained unknown native coverage with scan exit 2.
+
+Local publication receipts are retained under the ignored `dist/release/0.2.0/` directory in `publication-verification.json`, `post-publish-consumer-verification.json`, `github-ci-final.json` and `github-ci-main.json`. Public release assets include the frozen tarball and `SHA256SUMS`.
+
+Native unknown coverage, model-quality limits and bounded host-activation evidence still apply. The earlier snapshot below is preserved as dated history; its pending merge, tag and publication statements are superseded by this section.
+
+## Historical pre-merge snapshot — updated November 11, 2026
 
 This is a pre-merge validation snapshot. The additional PR review and regression requirements are recorded in `2026-11-11-pr-review.md`; [PR #1](https://github.com/poferraz/doublecheck/pull/1) carries the latest checks and merge state. Artifact changes after this snapshot supersede the historical package identity below.
 

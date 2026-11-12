@@ -2,7 +2,7 @@
 
 ## Reporting
 
-Report toolkit vulnerabilities privately through [GitHub Private Vulnerability Reporting](https://github.com/poferraz/doublecheck/security/advisories/new). Avoid including credentials or private target source in public issues. Security fixes target the 0.2.x package line. Version 0.2.0 uses report schema v2; older callers need the documented migration. This checkout is prepared for release without publishing it.
+Report toolkit vulnerabilities privately through [GitHub Private Vulnerability Reporting](https://github.com/poferraz/doublecheck/security/advisories/new). Avoid including credentials or private target source in public issues. Security fixes target the 0.2.x package line. Published version [0.2.0](https://www.npmjs.com/package/@poferraz/doublecheck/v/0.2.0) uses report schema v2; older callers need the [documented migration](docs/RELEASE_0.2.0.md).
 
 ## Trust and execution boundaries
 
