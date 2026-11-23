@@ -3,7 +3,39 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { runCli } from '../src/cli.js';
 import { runDualAudit } from '../src/orchestrator.js';
+import { getReviewExitCode } from '../src/reporter.js';
+import { completeEngine } from './helpers/results.js';
 import { withTempDir } from './helpers/temp.js';
+
+it('keeps saved CI results in sync with the requested lenses and the latest preflight', async () => withTempDir(async tmp => {
+  const file = path.join(tmp, 'sample.txt');
+  fs.writeFileSync(file, 'Sample text');
+  const output = path.join(tmp, 'review.json');
+  const args = [file, '--format', 'json', '--output', output];
+  const readReport = () => JSON.parse(fs.readFileSync(output, 'utf8'));
+  const checkEnvironment = vi.fn().mockResolvedValue({ ok: true });
+  const alibabaRunner = vi.fn(() => completeEngine('architect', [], tmp, ['sample.txt']));
+  const dependencies = {
+    checkEnvironment,
+    runDualAudit: (target, options) => runDualAudit(target, { ...options, alibabaRunner })
+  };
+
+  expect(await runCli([...args, '--mode', 'architect'], dependencies)).toBe(0);
+  expect(getReviewExitCode(readReport())).toBe(0);
+  expect(readReport().diagnostics).toContainEqual(expect.objectContaining({ code: 'LENS_NOT_REQUESTED' }));
+
+  checkEnvironment.mockResolvedValueOnce({ ok: false, errors: ['Unavailable'] });
+  expect(await runCli([...args, '--mode', 'architect'], dependencies)).toBe(2);
+  expect(alibabaRunner).toHaveBeenCalledTimes(1);
+  expect(readReport().status).toBe('failed');
+  expect(getReviewExitCode(readReport())).toBe(2);
+  expect(readReport().diagnostics).toContainEqual(expect.objectContaining({ code: 'NATIVE_PREFLIGHT_FAILED' }));
+
+  expect(await runCli(args, dependencies)).toBe(2);
+  expect(readReport().status).toBe('partial');
+  expect(readReport().diagnostics).toContainEqual(expect.objectContaining({ code: 'NO_ADVERSARY_INPUT' }));
+  expect(getReviewExitCode(readReport())).toBe(2);
+}));
 
 it('preserves independently imported evidence when native preflight fails', async () => withTempDir(async tmp => {
   const input = path.join(tmp, 'findings.json'); const output = path.join(tmp, 'report.json');

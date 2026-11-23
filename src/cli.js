@@ -1,5 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs';
+import os from 'node:os';
 import { parseArgs } from 'node:util';
 import { checkEnvironment } from './doctor.js';
 import { runDualAudit, resolveAuditTarget, validateScanTimeout } from './orchestrator.js';
@@ -21,7 +22,7 @@ export function parseCliArgs(argv = []) {
   const initReview = !!(values['init-review'] || values['init-review-md']);
   if (positionals.length > 1 || !['markdown', 'json', 'both'].includes(format) || !['dual', 'architect'].includes(reviewMode) || reviewMode === 'architect' && values.findings || values.force && !initReview || values['doctor-only'] && initReview) throw Error('Invalid or incompatible arguments.');
   for (const key of ['model', 'ollama', 'format', 'output', 'findings', 'ocr-provider', 'mode']) if (Object.hasOwn(values, key) && (!values[key].trim() || values[key].startsWith('-'))) throw Error('Missing option value.');
-  return { timeout, targetPath: positionals[0] || '.', model: values.model || '', ollamaEndpoint: values.ollama || 'http://localhost:11434', format, output: values.output || (format === 'json' ? 'doublecheck-report.json' : 'doublecheck-report.md'), doctorOnly: !!values['doctor-only'], findingsFile: values.findings || '', initReview, help: !!values.help, ocrProvider: values['ocr-provider'] || 'ollama', allowRemote: !!values['allow-remote'], force: !!values.force, reviewMode };
+  return { timeout, targetPath: positionals[0] || '.', model: values.model || '', ollamaEndpoint: values.ollama || 'http://localhost:11434', format, output: values.output, doctorOnly: !!values['doctor-only'], findingsFile: values.findings || '', initReview, help: !!values.help, ocrProvider: values['ocr-provider'] || 'ollama', allowRemote: !!values['allow-remote'], force: !!values.force, reviewMode };
 }
 export function printHelp() {
   console.log(`doublecheck — evidence-aware code review
@@ -31,10 +32,10 @@ From this checkout: node ./bin/doublecheck.js [path] [options]
   -m, --model <name>      Installed Ollama model
   --ollama <url>         Ollama endpoint (default: http://localhost:11434)
   --ocr-provider <name>  Matching custom OCR provider (default: ollama)
-  --allow-remote         Opt in to remote endpoints/cloud-tagged models
+  --allow-remote         Allow remote HTTPS endpoints and cloud-backed models to receive review data
   --findings <file>      Import adversary findings (coverage remains unknown)
   -f, --format <value>   markdown, json, or both
-  -o, --output <path>    Report destination
+  -o, --output <path>    Report destination (default: a private temporary directory per run)
   --scan-timeout <sec>   Overall OCR deadline (default: 1200 seconds)
   --doctor-only         Verify required inference/tool configuration
   --init-review         Initialize review instructions without inference
@@ -44,6 +45,7 @@ Exit: 0 complete/no blockers; 1 confirmed high/critical; 2 incomplete, unresolve
 }
 const terminal = value => String(value ?? '').replace(/[\x00-\x1f\x7f]/g, ' ');
 export async function runCli(argv = process.argv.slice(2), dependencies = {}) {
+  let privateDirectory;
   try {
     let config;
     try { config = parseCliArgs(argv); }
@@ -61,19 +63,38 @@ export async function runCli(argv = process.argv.slice(2), dependencies = {}) {
       console.log(`Review instructions ${result.action}: ${terminal(result.path)}`);
       return 0;
     }
-    resolveAuditTarget(config.targetPath);
-    const paths = config.doctorOnly ? null : resolveOutputPaths({ ...config, protectedInputs: [fs.statSync(config.targetPath).isFile() ? config.targetPath : null, config.findingsFile] });
+    const target = resolveAuditTarget(config.targetPath);
+    let paths;
+    if (!config.doctorOnly) {
+      if (config.output) {
+        paths = resolveOutputPaths({ ...config, protectedInputs: [fs.statSync(config.targetPath).isFile() ? config.targetPath : null, config.findingsFile] });
+      } else {
+        const tempRoot = fs.realpathSync(os.tmpdir());
+        const isInside = root => {
+          const relative = path.relative(root, tempRoot);
+          return relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+        };
+        if ([target.targetRoot, fs.realpathSync(process.cwd())].some(isInside)) {
+          console.error('The temporary directory is inside the review target or working directory. Choose a report destination with --output.');
+          return 2;
+        }
+        privateDirectory = fs.mkdtempSync(path.join(tempRoot, 'doublecheck-report-'));
+        const filename = config.format === 'json' ? 'doublecheck-report.json' : 'doublecheck-report.md';
+        paths = resolveOutputPaths({ ...config, output: path.join(privateDirectory, filename) });
+      }
+    }
     const doctor = await (dependencies.checkEnvironment || checkEnvironment)({ ollamaEndpoint: config.ollamaEndpoint, model: config.model, ocrProvider: config.ocrProvider, allowRemote: config.allowRemote });
     for (const warning of doctor.warnings || []) console.warn(terminal(warning));
     if (!doctor.ok) {
       for (const error of doctor.errors || []) console.error(terminal(error));
-      if (config.doctorOnly || !config.findingsFile) return 2;
+      if (config.doctorOnly) return 2;
     }
     if (doctor.ok) console.log(`Inference provider: ${terminal(doctor.inference?.provider)}; model: ${terminal(doctor.activeModel)}`);
     if (config.doctorOnly) { console.log('Required engine configuration is ready; this does not certify review coverage.'); return 0; }
     const raw = await (dependencies.runDualAudit || runDualAudit)(config.targetPath, { timeout: config.timeout, model: doctor.activeModel, inference: doctor.inference, ollamaEndpoint: config.ollamaEndpoint, ocrProvider: config.ocrProvider, allowRemote: config.allowRemote, findingsFile: config.findingsFile, nativePreflightFailed: !doctor.ok, reviewMode: config.reviewMode });
     const report = synthesizeReport(raw, { format: config.format });
     const output = await (dependencies.writeReports || writeReports)(paths, report);
+    if (output.written.length) privateDirectory = undefined;
     for (const file of output.written) console.log(`Report saved: ${terminal(file)}`);
     if (output.diagnostics.length) { console.error('Report output failed; any saved artifact paths are listed above.'); return 2; }
     console.log(report.json.status === 'complete' ? 'Review complete' : report.json.status === 'failed' ? 'Review failed' : 'Review incomplete');
@@ -82,4 +103,10 @@ export async function runCli(argv = process.argv.slice(2), dependencies = {}) {
     console.log(`Confirmed P0: ${report.p0Count}; P1: ${report.p1Count}; unresolved: ${report.json.unresolved.length}`);
     return getReviewExitCode(report.json);
   } catch { console.error('Review failed: invalid arguments, target, configuration, or output. Run --help for usage.'); return 2; }
+  finally {
+    if (privateDirectory) {
+      // Remove an unused directory after a failed review. Preserve any output.
+      try { fs.rmdirSync(privateDirectory); } catch {}
+    }
+  }
 }

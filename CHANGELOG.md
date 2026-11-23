@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Privacy and review results
+
+- Save default review reports in a private temporary directory. Use `--output` to choose a permanent destination.
+- Limit which environment variables reach the native reviewer. Remote inference requires explicit consent and HTTPS.
+- Record failed preflight checks in the report and return exit code 2 so a previous successful review cannot stand in for a failed run.
+
 ### Documentation
 - Document the published 0.2.0 release, npm installation and post-publication verification. The published package remains unchanged.
 - Add an animated repository hero showing the two review perspectives and their shared evidence report, with a static alternative and reproducible motion source.

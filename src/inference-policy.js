@@ -19,9 +19,12 @@ export function normalizeEndpoint(value) {
 }
 function endpointRouting(options) {
   const endpoint = normalizeEndpoint(options.ollamaEndpoint || 'http://localhost:11434');
-  const host = new URL(endpoint).hostname;
-  const route = ['localhost', '127.0.0.1', '[::1]'].includes(host) ? 'loopback' : 'remote';
-  if (route === 'remote' && options.allowRemote !== true) throw Error('Remote endpoint requires --allow-remote.');
+  const url = new URL(endpoint);
+  const route = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ? 'loopback' : 'remote';
+  if (route === 'remote') {
+    if (options.allowRemote !== true) throw Error('Remote endpoint requires --allow-remote.');
+    if (url.protocol !== 'https:') throw Error('Remote endpoint requires HTTPS.');
+  }
   return { endpoint, route };
 }
 export async function listInstalledModels(options) {

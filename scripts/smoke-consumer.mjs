@@ -8,6 +8,8 @@ const repo = fileURLToPath(new URL('../', import.meta.url));
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'doublecheck-package-'));
 try {
   const packed = JSON.parse(execFileSync('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', tmp, '--cache', path.join(tmp, 'cache')], { cwd: repo, encoding: 'utf8' }))[0];
+  const scripts = packed.files.map(file => file.path).filter(file => file.startsWith('scripts/')).sort();
+  assert.deepEqual(scripts, ['scripts/convert.sh', 'scripts/helpers/export-directory.mjs']);
   execFileSync('tar', ['-xzf', path.join(tmp, packed.filename), '-C', tmp]);
   const pkg = path.join(tmp, 'package'); const target = path.join(tmp, 'consumer'); fs.mkdirSync(target);
   assert.equal(fs.existsSync(path.join(pkg, 'node_modules')), false);

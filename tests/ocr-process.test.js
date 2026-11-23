@@ -1,12 +1,24 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { withTempDir } from './helpers/temp.js';
 import { createOcrRunner } from '../src/ocr-process.js';
 import { checkEnvironment } from '../src/doctor.js';
 import { defaultAlibabaRunner } from '../src/orchestrator.js';
 import { recoverScanSession, snapshotSessionIds } from '../src/ocr-session.js';
+
+it('passes only the operating environment OCR needs to the subprocess', async () => {
+  vi.stubEnv('DOUBLECHECK_PRIVATE_SENTINEL', 'test-only');
+  vi.stubEnv('HTTPS_PROXY', 'http://proxy.invalid');
+  try {
+    const env = await createOcrRunner((_command, _args, options) => options.env)('ocr', ['version']);
+    expect(env.OCR_NO_UPDATE).toBe('1');
+    expect(env.PATH).toBe(process.env.PATH);
+    expect(Object.hasOwn(env, 'DOUBLECHECK_PRIVATE_SENTINEL')).toBe(false);
+    expect(Object.hasOwn(env, 'HTTPS_PROXY')).toBe(false);
+  } finally { vi.unstubAllEnvs(); }
+});
 
 // Catch replacing tree termination with SIGTERM, or killing only the launcher.
 it.skipIf(process.platform === 'win32').each(['timeout', 'output-limit'])('terminates an uncooperative OCR launcher and child on %s while retaining imported findings', async failure => withTempDir(async tmp => {
@@ -20,10 +32,10 @@ if (process.argv[2] === 'version') console.log('open-code-review v1.13.3');
 else if (process.argv[2] === 'session') console.log('[]');
 else {
   process.on('SIGTERM', () => {});
-  fs.appendFileSync(process.env.OCR_TEST_PIDS, process.pid + '\\n');
+  fs.appendFileSync(${JSON.stringify(pids)}, process.pid + '\\n');
   if (process.argv[2] !== '--descendant') {
     const child = spawn(process.execPath, [process.argv[1], '--descendant'], { stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
-    if (process.env.OCR_TEST_FAILURE === 'output-limit') child.once('message', () => process.stdout.write('x'.repeat(2 * 1024 * 1024)));
+    if (${JSON.stringify(failure)} === 'output-limit') child.once('message', () => process.stdout.write('x'.repeat(2 * 1024 * 1024)));
   } else if (process.send) process.send('ready');
   // Independent cleanup even if the implementation or outer watchdog fails.
   setTimeout(() => process.exit(0), 8000);
@@ -37,7 +49,8 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { runDualAudit } from ${JSON.stringify(new URL('../src/orchestrator.js', import.meta.url).href)};
 const root = process.argv[1];
-const readPids = () => fs.existsSync(process.env.OCR_TEST_PIDS) ? fs.readFileSync(process.env.OCR_TEST_PIDS, 'utf8').trim().split('\\n').map(Number).filter(pid => Number.isSafeInteger(pid) && pid > 1) : [];
+const pidFile = ${JSON.stringify(pids)};
+const readPids = () => fs.existsSync(pidFile) ? fs.readFileSync(pidFile, 'utf8').trim().split('\\n').map(Number).filter(pid => Number.isSafeInteger(pid) && pid > 1) : [];
 try {
   const started = Date.now();
   const audit = await runDualAudit(root, {
@@ -59,7 +72,7 @@ try {
 `;
   const child = spawnSync(process.execPath, ['--input-type=module', '-e', driver, tmp], {
     encoding: 'utf8', timeout: 15000, killSignal: 'SIGKILL',
-    env: { ...process.env, PATH: `${tmp}${path.delimiter}${process.env.PATH}`, OCR_TEST_PIDS: pids, OCR_TEST_FAILURE: failure }
+    env: { ...process.env, PATH: `${tmp}${path.delimiter}${process.env.PATH}` }
   });
   expect(child.error).toBeUndefined();
   expect(child.status, child.stderr).toBe(0);

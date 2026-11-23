@@ -2,18 +2,19 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync, fork } from 'node:child_process';
+import { fork } from 'node:child_process';
 import { waitForMockMessage } from './helpers/mock-process.mjs';
 import { runCli } from '../src/cli.js';
 import { runDualAudit } from '../src/orchestrator.js';
-const ocrEnvironment = { ...process.env, OCR_NO_UPDATE: '1' };
+import { createOcrRunner } from '../src/ocr-process.js';
+const runOcr = createOcrRunner();
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'doublecheck-native-'));
 let server;
 try {
-  const version = execFileSync('ocr', ['version'], { encoding: 'utf8', timeout: 3000, env: ocrEnvironment });
+  const version = await runOcr('ocr', ['version'], { encoding: 'utf8', timeout: 3000 });
   assert.match(version, /v1\.13\.3\b/);
   fs.writeFileSync(path.join(tmp, 'fixture.js'), 'export function add(a, b) { return a + b; }\n');
-  const preview = JSON.parse(execFileSync('ocr', ['scan', '--repo', tmp, '--preview', '--format', 'json'], { encoding: 'utf8', timeout: 10000, env: ocrEnvironment, stdio: ['ignore', 'pipe', 'pipe'] }));
+  const preview = JSON.parse(await runOcr('ocr', ['scan', '--repo', tmp, '--preview', '--format', 'json'], { encoding: 'utf8', timeout: 10000 }));
   assert.ok(Array.isArray(preview.files) && preview.files.some(e => e.path === 'fixture.js' && e.will_review));
   if (process.argv.includes('--preview-only')) console.log('OCR 1.13.3 native file-selection preview passed; inference/output conformance was not exercised.');
   else {
