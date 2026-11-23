@@ -1,5 +1,5 @@
-import { it, expect } from 'vitest';
-import { resolveInferencePolicy } from '../src/inference-policy.js';
+import { it, expect, vi } from 'vitest';
+import { listInstalledModels, resolveInferencePolicy } from '../src/inference-policy.js';
 const config = { custom_providers: { ollama: { url: 'http://127.0.0.1:11434/v1', protocol: 'openai', model: 'qwen:latest', api_key: 'secret-marker' } } };
 const tags = models => async () => ({ ok: true, json: async () => ({ models }) });
 const resolve = (opts = {}, data = config) => resolveInferencePolicy({ ollamaEndpoint: 'http://127.0.0.1:11434', model: 'qwen:latest', fetch: tags([{ name: 'qwen:latest' }]), ...opts }, { readOcrConfig: () => data });
@@ -10,6 +10,13 @@ it('requires remote opt-in and a matching configured endpoint', async () => {
   await expect(resolve({ ollamaEndpoint: 'http://localhost:11434' })).rejects.toThrow();
   const remote = { custom_providers: { ollama: { ...config.custom_providers.ollama, url: 'https://remote.example/v1' } } };
   expect(await resolve({ ollamaEndpoint: 'https://remote.example', allowRemote: true }, remote)).toMatchObject({ route: 'remote' });
+});
+it('rejects plaintext remote connections before any network request, even with consent', async () => {
+  const fetch = vi.fn();
+  const options = { ollamaEndpoint: 'http://remote.example', allowRemote: true, fetch };
+  await expect(listInstalledModels(options)).rejects.toThrow(/HTTPS/);
+  await expect(resolve(options)).rejects.toThrow(/HTTPS/);
+  expect(fetch).not.toHaveBeenCalled();
 });
 it('rejects ambient cloud providers and credential commands without exposing their values', async () => {
   for (const data of [{ provider: 'openai' }, { custom_providers: { ollama: { ...config.custom_providers.ollama, api_key: '', api_key_cmd: 'secret-marker' } } }]) {

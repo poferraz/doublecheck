@@ -1,25 +1,25 @@
-# Security Policy
+# Security policy
 
 ## Reporting
 
-Report toolkit vulnerabilities privately through [GitHub Private Vulnerability Reporting](https://github.com/poferraz/doublecheck/security/advisories/new). Avoid including credentials or private target source in public issues. Security fixes target the 0.2.x package line. Published version [0.2.0](https://www.npmjs.com/package/@poferraz/doublecheck/v/0.2.0) uses report schema v2; older callers need the [documented migration](docs/RELEASE_0.2.0.md).
+Use the repository's private reporting form for vulnerabilities in Doublecheck. Include the affected release or source commit and the behavior you observed. Redact secrets, private source and local paths from attachments. [Report a vulnerability](https://github.com/poferraz/doublecheck/security/advisories/new)
 
-## Trust and execution boundaries
+## Reviewing code and handling evidence
 
-Doublecheck invokes OCR through parameterized subprocess arguments, uses unique temporary directories, validates tool data, and retains incomplete states. These measures do not establish an OS sandbox. OCR and its configured tools run with the invoking user's privileges; review only targets and tool configurations you are authorized to inspect.
+The optional OCR process and its configured tools run with your operating-system permissions. The CLI imports security findings from JSON. The pinned Cloudflare schema checks the structure of each record. Assess who produced it, which revision it covers and whether its evidence supports the claim. Overlap with another finding leaves the verification state unchanged.
 
-The adversary CLI adapter imports JSON. It does not execute Cloudflare's security-audit workflow or independently reproduce imported claims. Native OCR comments remain candidates. Confirmed, unresolved, and rejected states are distinct; correlation never establishes confirmation or raises severity. Review completeness and vulnerability absence are different claims.
+Doublecheck checks reported paths against the selected root. Path normalization is lexical. It does not isolate the process from the filesystem or confine symbolic links.
 
-Findings paths are canonicalized against the target root for identity. Out-of-root records are rejected instead of rewritten into plausible in-root paths. This is lexical validation, not symlink-safe filesystem confinement. Display-only `normalizePath` is not a security boundary.
+Reports can contain code excerpts and absolute paths. Current source writes reports to a private temporary directory by default and prints their location. The OS may clean up this directory. Supply `--output` to keep a report in a location you control. Check any explicit destination before publishing or committing it. The released npm 0.2.0 CLI instead defaults to the working directory. Both versions create report files with restrictive permissions. When writing two formats, a later write can fail after one format was saved.
 
-## Inference and privacy
+## Inference and provider configuration
 
-Native scans reject reserved built-in provider names for custom routing, require remote consent for models that Ollama explicitly reports as remote-backed, and require a matching custom OCR provider and pass its name/model explicitly. Provider credential commands are refused; Doublecheck does not modify global provider settings. Arbitrary remote routing and cloud-tagged models require `--allow-remote`. Endpoint URLs with credentials, query strings, or fragments are rejected. Ollama readiness probes do not follow redirects.
+Library report evaluation, CLI help and review-instruction initialization work offline after installation. A native review runs OCR against the configured model and can transmit the selected source. Even a configuration check contacts the model endpoint. OCR's automatic updater is disabled for managed runs. A hosted review service, if separately enabled, uses its own account and data policies.
 
-A loopback URL can still reach a forwarding daemon/proxy. Model locality is reported as unverified; there is no unconditional local-only/no-egress guarantee. Configure Ollama's cloud features separately, assess OCR's configured tools, and apply OS/network isolation when your environment requires it. The optional Claude Code Review service runs under its own cloud/account policies.
+Use a trusted OCR 1.13.3 installation and provider configuration. The CLI checks the provider, model and endpoint before native execution. Credential commands, credentials in URLs, query strings and URL fragments are rejected. Readiness probes do not follow redirects. In current source, off-host endpoints require both HTTPS and explicit remote opt-in. Cloud-tagged models and models reported as remotely backed also require opt-in. A loopback endpoint can forward traffic. Check the daemon's cloud policy if source must stay on your machine.
 
-Reports intentionally contain review evidence and may contain sensitive source excerpts or absolute target paths. Treat them as sensitive artifacts. Diagnostics avoid raw records, subprocess error messages, and credentials, but redaction is not a substitute for reviewing artifacts before sharing them. Staged report files are created with restrictive permissions; Markdown escapes external structure. Output pairs are not transactionally atomic.
+Current source passes OCR a limited environment for executable lookup, home and temporary directories, operating-system paths and locale. It omits other shell variables, including credential and proxy variables. Credentials available through its configuration files, its configured tools, or the operating-system account may still be accessible. The [published 0.2.0 release](docs/RELEASE_0.2.0.md) predates the environment and off-host transport restrictions.
 
 ## Validation limits
 
-Managed OCR invocations disable its automatic updater; the doctor and native runner each enforce the supported version. The supported OCR version is 1.13.3; future versions require contract evidence. Its full-file scan lacks a coverage manifest and remains partial. The pinned upstream Cloudflare schema validates verdict-specific fields, but cannot authenticate the author, reproduce an exploit, or prove the supplied code matches your checkout. Unknown import coverage remains explicit. See [validation and limits](docs/RELEASE_0.2.0.md#validation-and-limits).
+Native OCR 1.13.3 supplies no full-file coverage manifest, so its native reviews are partial even when it reports zero findings. Synthetic tests measure the stated behavior of the report and gate. Human verification is still needed to determine whether a candidate affects the code. [Release validation and limits](docs/RELEASE_0.2.0.md#validation-and-limits)

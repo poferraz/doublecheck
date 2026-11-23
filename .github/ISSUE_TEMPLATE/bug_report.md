@@ -10,7 +10,7 @@ assignees: ''
 A clear and concise description of what the bug is.
 
 **To Reproduce**
-Steps to reproduce the behavior:
+Use a small, fictional project to show the behavior.
 1. Run command: `node ./bin/doublecheck.js [path] [flags]`
 2. Ollama model used and remote opt-in, if applicable: (e.g. `qwen2.5-coder:14b`)
 3. See error or unexpected output
@@ -24,4 +24,4 @@ A clear and concise description of what you expected to happen.
  - Ollama version: [e.g. 0.3.14]
 
 **Additional Context**
-Add any other context, stack traces, or screenshots about the problem here.
+Share a short redacted error message. Keep source code from private projects, report contents, personal paths and credentials out of public issues. To report a security vulnerability in Doublecheck itself, use the [private reporting form](https://github.com/poferraz/doublecheck/security/advisories/new).

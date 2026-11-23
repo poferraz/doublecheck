@@ -1,6 +1,6 @@
 # Doublecheck 0.2.0
 
-Version 0.2.0 was published on November 11, 2026 (America/Vancouver), on [npm](https://www.npmjs.com/package/@poferraz/doublecheck/v/0.2.0) and as a [GitHub release](https://github.com/poferraz/doublecheck/releases/tag/v0.2.0). Tag `v0.2.0` points to merged commit `c62e794164803ae919dd16a8955dc3f595c356ac`.
+Version 0.2.0 was published on November 11, 2026, on [npm](https://www.npmjs.com/package/@poferraz/doublecheck/v/0.2.0) and as a [GitHub release](https://github.com/poferraz/doublecheck/releases/tag/v0.2.0). Tag `v0.2.0` points to merged commit `c62e794164803ae919dd16a8955dc3f595c356ac`.
 
 This release preserves the distinction between a finding, its verification state and scan completion. It prepares Markdown and JSON evidence for developers, CI consumers and coding agents.
 
@@ -20,7 +20,7 @@ npm install @poferraz/doublecheck@0.2.0
 npx doublecheck --help
 ```
 
-Native inference requires the separate OCR/provider/model setup in the [README](../README.md#configure-and-run-a-native-scan). Help and `--init-review` do not require inference.
+Native inference requires OCR 1.13.3, a matching custom provider and an installed model. Help and `--init-review` work offline after installation. The configuration instructions for this release are in its [versioned install guide](https://github.com/poferraz/doublecheck/blob/27e34ab4987614e03a0fbb702cf813b5a7ab39f8/README.md#configure-and-run-a-native-scan).
 
 ## What changes
 

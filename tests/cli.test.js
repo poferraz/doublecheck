@@ -1,7 +1,9 @@
 import { it, expect, vi } from 'vitest';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { parseCliArgs, runCli } from '../src/cli.js';
+import { writeReports } from '../src/output.js';
 import { withTempDir } from './helpers/temp.js';
 it('parses modes, existing aliases and dash-prefixed targets after --', () => {
   expect(parseCliArgs([])).toMatchObject({ targetPath: '.', format: 'markdown', reviewMode: 'dual' });
@@ -26,6 +28,50 @@ it('writes both formats and returns incomplete status rather than success', asyn
   });
   expect(code).toBe(2); expect(JSON.parse(fs.readFileSync(path.join(tmp, 'report.json'))).status).toBe('partial');
   expect(fs.readFileSync(path.join(tmp, 'report.md'), 'utf8')).toContain('Review incomplete');
+}));
+it('keeps default reports in a separate private directory for every run', async () => withTempDir(async tmp => {
+  const target = path.join(tmp, 'project');
+  const tempRoot = path.join(tmp, 'scratch');
+  fs.mkdirSync(target);
+  fs.mkdirSync(tempRoot);
+  const mockTemp = vi.spyOn(os, 'tmpdir').mockReturnValue(tempRoot);
+  const directories = [];
+  const writer = (paths, report) => {
+    const dir = path.dirname(paths.json);
+    expect(path.dirname(dir)).toBe(fs.realpathSync(tempRoot));
+    directories.push(dir);
+    return writeReports(paths, report);
+  };
+  try {
+    for (let run = 0; run < 2; run++) {
+      const code = await runCli([target, '--format', 'both'], {
+        checkEnvironment: async () => ({ ok: true }),
+        runDualAudit: async () => ({ status: 'partial', findings: [], engines: [] }),
+        writeReports: writer
+      });
+      expect(code).toBe(2);
+    }
+    expect(fs.readdirSync(target)).toEqual([]);
+    expect(new Set(directories).size).toBe(2);
+    for (const dir of directories) {
+      expect(fs.readdirSync(dir).sort()).toEqual(['doublecheck-report.json', 'doublecheck-report.md']);
+      if (process.platform !== 'win32') {
+        expect(fs.statSync(dir).mode & 0o777).toBe(0o700);
+        for (const file of fs.readdirSync(dir)) expect(fs.statSync(path.join(dir, file)).mode & 0o777).toBe(0o600);
+      }
+    }
+  } finally { mockTemp.mockRestore(); }
+}));
+it('requests a destination before inference if the system temporary directory is inside the project', async () => withTempDir(async target => {
+  const tempRoot = path.join(target, 'scratch');
+  fs.mkdirSync(tempRoot);
+  const mockTemp = vi.spyOn(os, 'tmpdir').mockReturnValue(tempRoot);
+  const doctor = vi.fn();
+  try {
+    expect(await runCli([target], { checkEnvironment: doctor })).toBe(2);
+    expect(doctor).not.toHaveBeenCalled();
+    expect(fs.readdirSync(tempRoot)).toEqual([]);
+  } finally { mockTemp.mockRestore(); }
 }));
 it('initializes without inference', async () => withTempDir(async tmp => {
   expect(await runCli([tmp, '--init-review'])).toBe(0);

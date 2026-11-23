@@ -60,7 +60,13 @@ async function runProcess(command, args, options) {
 
 export function createOcrRunner(override) {
   return async (command, args, settings = {}) => {
-    const options = { ...settings, env: { ...process.env, OCR_NO_UPDATE: '1' } };
+    // OCR uses its configured provider. Keep unrelated shell credentials and
+    // proxy overrides out of the child process.
+    const env = { OCR_NO_UPDATE: '1' };
+    for (const key of ['PATH', 'HOME', 'USERPROFILE', 'SYSTEMROOT', 'WINDIR', 'APPDATA', 'LOCALAPPDATA', 'PATHEXT', 'TMPDIR', 'TMP', 'TEMP', 'LANG', 'LC_ALL']) {
+      if (process.env[key] !== undefined) env[key] = process.env[key];
+    }
+    const options = { ...settings, env };
     return override ? override(command, args, options) : runProcess(command, args, options);
   };
 }
